@@ -11,40 +11,89 @@ simulate_dif(
   dif_items = c(3, 7),
   dif_effect = 0.8,
   dif_type = "uniform",
+  dif_structure = "standard",
+  dif_group = NULL,
+  demo_vars = NULL,
   seed = NULL
 )
 }
 \arguments{
 \item{n_persons}{Integer. Total number of respondents.}
 
-\item{n_items}{Integer. Number of items. Default is 20.}
+\item{n_items}{Integer. Number of items. Default 20.}
 
-\item{n_groups}{Integer. Number of groups. Default is 2.}
+\item{n_groups}{Integer. Number of groups. Default 2.}
 
-\item{dif_items}{Integer vector. Which items have DIF. Default is \code{c(3, 7)}.}
+\item{dif_items}{Which items have DIF. For \code{dif_structure = "standard"} or
+\code{"intersection"}, an integer vector (e.g. \code{c(3, 7)}). For
+\code{dif_structure = "mixed"}, either a named list
+\code{list(standard = c(3,7), intersection = c(12,15))} or a plain integer
+vector (first half gets standard DIF, second half intersection DIF).
+Default \code{c(3, 7)}.}
 
-\item{dif_effect}{Numeric. Size of DIF effect in logits. Default is \code{0.8}.}
+\item{dif_effect}{Numeric. DIF shift size in logits. Default \code{0.8}.}
 
-\item{dif_type}{Character. \code{"uniform"} (default) or \code{"nonuniform"}.}
+\item{dif_type}{\code{"uniform"} (difficulty shift only, default) or
+\code{"nonuniform"} (both difficulty and discrimination shifted).}
 
-\item{seed}{Integer. Random seed for reproducibility.}
+\item{dif_structure}{One of \code{"standard"} (default), \code{"intersection"}, or
+\code{"mixed"}. \code{"standard"} replicates the original behaviour. \code{"intersection"}
+applies DIF only to the specific intersectional cell in \code{dif_group}.
+\code{"mixed"} applies standard DIF to some items and intersection DIF to
+others.}
+
+\item{dif_group}{Named list identifying the target intersectional cell for
+intersection DIF. Variable names must match \code{demo_vars} or \code{"group"}.
+Example: \code{list(group = "G1", nationality = "UK", age_band = "Young")}.
+Required when \code{dif_structure} is \code{"intersection"} or \code{"mixed"}.}
+
+\item{demo_vars}{Named list of additional demographic variables to add, with
+their levels. Persons are assigned randomly with uniform probability.
+Example: \code{list(nationality = c("UK", "DE", "FR"), age_band = c("Young", "Old"))}. Required when \code{dif_structure} is \code{"intersection"} or \code{"mixed"}.}
+
+\item{seed}{Integer random seed for reproducibility.}
 }
 \value{
-A data frame with item response columns (\code{item_1}, \code{item_2}, ...) and
-a \code{group} column.
+A data frame with item response columns (\code{item_1}, \code{item_2}, ...),
+a \code{group} column, and any additional columns specified in \code{demo_vars}.
+True item parameters and DIF metadata are stored as attributes.
 }
 \description{
-A helper function for generating synthetic dichotomous item response data
-with known DIF structure. Useful for testing the package, running pilot
-analyses, and simulation studies.
+Generates synthetic dichotomous item response data with a known DIF
+structure. Supports three DIF patterns: standard group DIF (\code{"standard"}),
+DIF confined to a single intersectional cell (\code{"intersection"}), and a
+mixture of both (\code{"mixed"}).
 }
 \examples{
 \dontrun{
-# Generate a simple 2-group dataset
-dat <- simulate_dif(n_persons = 500, n_items = 20, dif_items = c(3, 7))
+# Standard DIF — unchanged behaviour
+dat <- simulate_dif(500, 20, 2, c(3, 7), 1.0)
 
-# Check it works with idifr
-result <- idifr(dat, items = 1:20, group = ~ group, method = "LR")
+# Intersection-only DIF
+dat_ix <- simulate_dif(
+  n_persons     = 2000,
+  n_items       = 20,
+  dif_items     = c(5, 12),
+  dif_effect    = 1.5,
+  dif_structure = "intersection",
+  dif_group     = list(group = "G1", nationality = "UK", age_band = "Young"),
+  demo_vars     = list(nationality = c("UK", "DE", "FR"),
+                       age_band    = c("Young", "Old")),
+  seed          = 42
+)
+
+# Mixed DIF
+dat_mix <- simulate_dif(
+  n_persons     = 2000,
+  n_items       = 20,
+  dif_items     = list(standard = c(3, 7), intersection = c(12, 15)),
+  dif_effect    = 1.0,
+  dif_structure = "mixed",
+  dif_group     = list(group = "G1", nationality = "UK", age_band = "Young"),
+  demo_vars     = list(nationality = c("UK", "DE", "FR"),
+                       age_band    = c("Young", "Old")),
+  seed          = 42
+)
 }
 
 }
