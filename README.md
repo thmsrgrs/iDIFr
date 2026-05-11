@@ -9,7 +9,8 @@
 
 `iDIFr` is a user-friendly R package for detecting Differential Item
 Functioning (DIF) using Logistic Regression, IRT Likelihood Ratio Tests, and
-Multigroup CFA — with first-class support for **intersectional group designs**.
+Random Forest structural-change tests — with first-class support for
+**intersectional group designs**.
 
 ## Why iDIFr?
 
@@ -23,7 +24,7 @@ Key features:
 
 - **Intersectional group support** — define groups using `~ gender * nationality * age_band`
 - **Effect sizes as first-class outputs** — results lead with Nagelkerke ΔR² and ΔCFI, not just p-values
-- **Three methods in one interface** — LR, LRT, and MGCFA with consistent output
+- **Three methods in one interface** — LR, LRT, and RF with consistent output
 - **Transparent cell-size guidance** — `check_groups()` and `merge_groups()` help you manage sparse intersectional cells
 - **Tidy output** — `tidy()` returns a flat data frame for use with `dplyr` and `ggplot2`
 
@@ -64,8 +65,8 @@ tidy(result)           # Flat data frame
 | Argument | Method | Effect size | Best for |
 |----------|--------|-------------|----------|
 | `"LR"` | Logistic Regression | Nagelkerke ΔR² (ETS A/B/C) | General use, no IRT assumptions |
-| `"LRT"` | IRT Likelihood Ratio Test | ΔCFI, ΔRMSEA | IRT-based programmes |
-| `"MGCFA"` | Multigroup CFA | ΔCFI | SEM/structural approach |
+| `"LRT"` | IRT Likelihood Ratio Test | Std. chi / ΔRMSEA | IRT-based programmes |
+| `"RF"` | Random Forest (structural change) | Std. score difference | Intersectional designs, no linearity assumption |
 
 ## Effect size thresholds
 
@@ -76,7 +77,8 @@ positives in large samples.
 | Method | Negligible | Moderate | Large |
 |--------|-----------|---------|-------|
 | LR (ΔR²) | < .035 | .035–.070 | ≥ .070 |
-| LRT / MGCFA (ΔCFI) | < .010 | .010–.020 | ≥ .020 |
+| LRT (std. chi) | < 0.2 | 0.2–0.5 | ≥ .050 |
+| RF (std. diff) | < .20 | .20–.50 | ≥ .50 |
 
 ## Citation
 

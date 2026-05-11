@@ -5,10 +5,10 @@ Version: 0.1.0
 Authors@R: person("Author", "Name", email = "author@email.com", role = c("aut", "cre"))
 Description: A user-friendly toolkit for detecting Differential Item Functioning (DIF)
     using Logistic Regression (LR), the IRT Likelihood Ratio Test (LRT), and
-    Multigroup Confirmatory Factor Analysis (MGCFA). Designed for both standard
-    two-group and intersectional multi-group designs, iDIFr prioritises effect size
-    reporting alongside statistical significance, clear guidance on group construction,
-    and interpretable output suitable for applied testing contexts.
+    Random Forest structural-change tests (RF). Designed for both standard two-group
+    and intersectional multi-group designs, iDIFr prioritises effect size reporting
+    alongside statistical significance, clear guidance on group construction, and
+    interpretable output suitable for applied testing contexts.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
