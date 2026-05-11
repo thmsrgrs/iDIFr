@@ -1,0 +1,35 @@
+Package: iDIFr
+Type: Package
+Title: Intersectional Differential Item Functioning Analysis in R
+Version: 0.1.0
+Authors@R: person("Author", "Name", email = "author@email.com", role = c("aut", "cre"))
+Description: A user-friendly toolkit for detecting Differential Item Functioning (DIF)
+    using Logistic Regression (LR), the IRT Likelihood Ratio Test (LRT), and
+    Multigroup Confirmatory Factor Analysis (MGCFA). Designed for both standard
+    two-group and intersectional multi-group designs, iDIFr prioritises effect size
+    reporting alongside statistical significance, clear guidance on group construction,
+    and interpretable output suitable for applied testing contexts.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+Depends:
+    R (>= 4.1.0)
+Imports:
+    Rcpp (>= 1.0.0),
+    stats,
+    cli,
+    dplyr,
+    ggplot2,
+    rlang
+LinkingTo:
+    Rcpp
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+URL: https://github.com/username/iDIFr
+BugReports: https://github.com/username/iDIFr/issues
+Config/roxygen2/version: 8.0.0

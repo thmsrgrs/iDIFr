@@ -1,0 +1,178 @@
+---
+title: "Getting started with iDIFr"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with iDIFr}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment  = "#>"
+)
+library(iDIFr)
+```
+
+## What is DIF?
+
+Differential Item Functioning (DIF) occurs when test-takers from different
+groups who have the same underlying ability have different probabilities of
+answering a test item correctly. DIF threatens the validity of comparisons across
+groups and is a central concern in fair assessment.
+
+`iDIFr` makes DIF analysis accessible, with particular support for
+**intersectional group designs** — where groups are defined by combinations of
+demographic variables, such as gender × nationality × age band.
+
+---
+
+## A simple example
+
+We'll use a small synthetic dataset with known DIF to illustrate the workflow.
+
+### Step 1: Generate (or load) your data
+
+Your data should be a data frame where:
+
+- Item response columns contain only `0` and `1`
+- Demographic columns identify group membership
+
+```{r simulate}
+set.seed(42)
+dat <- simulate_dif(
+  n_persons  = 600,
+  n_items    = 20,
+  n_groups   = 2,
+  dif_items  = c(3, 7, 12),  # these items have DIF
+  dif_effect = 0.9,
+  dif_type   = "uniform"
+)
+
+head(dat[c(1:5, 21)])  # first 5 items + group column
+```
+
+### Step 2: Check your group structure
+
+Before running the analysis, use `check_groups()` to inspect group cell sizes.
+This is especially important in intersectional designs where small cells can
+reduce statistical power.
+
+```{r check-groups, eval = FALSE}
+check_groups(dat, group = ~ group)
+```
+
+For an intersectional design with multiple demographic variables:
+
+```{r check-intersectional, eval = FALSE}
+# Add nationality variable for illustration
+dat$nationality <- sample(c("UK", "DE", "FR"), 600, replace = TRUE)
+dat$age_band    <- sample(c("18-30", "31-45", "46+"), 600, replace = TRUE)
+
+check_groups(dat, group = ~ group * nationality * age_band)
+```
+
+If any cells are too small, `check_groups()` will tell you and point you to
+`merge_groups()`.
+
+### Step 3: Run the DIF analysis
+
+Supply your data, the item columns, a group formula, and which method(s) to use.
+
+```{r run-idifr, eval = FALSE}
+result <- idifr(
+  data   = dat,
+  items  = 1:20,
+  group  = ~ group,
+  method = c("LR", "LRT")
+)
+```
+
+`method` is required — you must choose. Options are:
+
+| Method | What it does |
+|--------|-------------|
+| `"LR"` | Logistic Regression — flexible, non-IRT, effect size via Nagelkerke ΔR² |
+| `"LRT"` | IRT Likelihood Ratio Test — model-based, effect size via ΔCFI |
+| `"MGCFA"` | Multigroup CFA — SEM framework, effect size via ΔCFI |
+
+### Step 4: Explore the results
+
+```{r explore, eval = FALSE}
+# Flagged items with effect sizes
+print(result)
+
+# Full breakdown by method
+summary(result)
+
+# Effect size heatmap
+plot(result)
+
+# Method concordance
+plot(result, type = "concordance")
+
+# Flat data frame for your own analysis
+df <- tidy(result)
+```
+
+---
+
+## Intersectional DIF
+
+The key feature of `iDIFr` is first-class support for intersectional group
+structures. Where conventional DIF analysis examines one demographic variable
+at a time, intersectional analysis asks: *does DIF appear at the combination
+of gender × nationality × age, even when no individual variable shows DIF?*
+
+```{r intersectional, eval = FALSE}
+result_intersectional <- idifr(
+  data   = dat,
+  items  = 1:20,
+  group  = ~ group * nationality * age_band,  # crossing all three variables
+  method = c("LR", "LRT")
+)
+
+print(result_intersectional)
+```
+
+### Handling small cells
+
+Intersectional designs often produce small cells. `iDIFr` will warn you but
+always run the analysis. To merge sparse cells:
+
+```{r merge, eval = FALSE}
+grp <- check_groups(dat, group = ~ group * nationality * age_band)
+
+merged_dat <- merge_groups(
+  grp,
+  age_band = list("18-45" = c("18-30", "31-45"))  # combine two age bands
+)
+
+# Re-run with merged groups
+result_merged <- idifr(merged_dat, 1:20,
+                       group  = ~ group * nationality * age_band,
+                       method = c("LR", "LRT"))
+```
+
+---
+
+## Effect sizes
+
+`iDIFr` leads with effect sizes, not just p-values. Flagging criteria require
+*both* a significant p-value (after adjustment) *and* a meaningful effect size.
+
+| Method | Effect size | Classification |
+|--------|-------------|----------------|
+| LR | Nagelkerke ΔR² | A: <.035 · B: .035–.070 · C: ≥.070 |
+| LRT | ΔCFI | Negligible: <.010 · Moderate: .010–.020 · Large: ≥.020 |
+| MGCFA | ΔCFI | Negligible: <.010 · Moderate: .010–.020 · Large: ≥.020 |
+
+---
+
+## Further reading
+
+- Swaminathan & Rogers (1990) on logistic regression DIF
+- Thissen, Steinberg & Wainer (1993) on IRT-LRT DIF
+- Millsap & Everson (1993) on measurement bias methods
+- Crenshaw (1989) on intersectionality as a conceptual framework

@@ -1,0 +1,25 @@
+# R workspace
+.RData
+.Rhistory
+.Ruserdata
+
+# R project files
+*.Rproj
+.Rproj.user/
+
+# Compiled artifacts (Rcpp / src/)
+src/*.o
+src/*.so
+src/*.dll
+
+# Build artifacts
+*.tar.gz
+*.Rcheck/
+
+# Vignette / knitr cache and output
+inst/doc/
+vignettes/*.html
+vignettes/*.pdf
+
+# Claude Code local settings
+.claude/
