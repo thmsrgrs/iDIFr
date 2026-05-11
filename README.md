@@ -3,7 +3,7 @@
 **Intersectional Differential Item Functioning Analysis in R**
 
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/username/iDIFr/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/username/iDIFr/actions)
+[![R-CMD-check](https://github.com/thmsrgrs/iDIFr/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/thmsrgrs/iDIFr/actions)
 [![CRAN status](https://www.r-pkg.org/badges/version/iDIFr)](https://CRAN.R-project.org/package=iDIFr)
 <!-- badges: end -->
 
@@ -65,8 +65,25 @@ tidy(result)           # Flat data frame
 | Argument | Method | Effect size | Best for |
 |----------|--------|-------------|----------|
 | `"LR"` | Logistic Regression | Nagelkerke ΔR² (ETS A/B/C) | General use, no IRT assumptions |
-| `"LRT"` | IRT Likelihood Ratio Test | Std. chi / ΔRMSEA | IRT-based programmes |
+| `"LRT"` | IRT Likelihood Ratio Test | Std. chi | IRT-based programmes |
 | `"RF"` | Random Forest (structural change) | Std. score difference | Intersectional designs, no linearity assumption |
+| `"ID"` | Intersectional Decomposition | Nagelkerke ΔR² | Decomposing DIF into main, two-way, intersection |
+
+## Intersectional Contrast Analysis
+
+`ica()` compares single-variable and intersectional `idifr()` analyses to
+classify each item as *amplified*, *pure intersection*, *obscured*, or *none*:
+
+```r
+ica_res <- ica(
+  data   = my_data,
+  items  = 1:20,
+  group  = ~ gender * nationality * age_band,
+  method = "LR"
+)
+print(ica_res)
+tidy(ica_res)
+```
 
 ## Effect size thresholds
 
@@ -86,10 +103,10 @@ If you use `iDIFr` in published work, please cite:
 
 ```
 Author (2026). iDIFr: Intersectional Differential Item Functioning Analysis
-in R. R package version 0.1.0. https://github.com/username/iDIFr
+in R. R package version 0.1.0. https://github.com/thmsrgrs/iDIFr
 ```
 
 ## Contributing
 
 Bug reports and feature requests are welcome via
-[GitHub Issues](https://github.com/username/iDIFr/issues).
+[GitHub Issues](https://github.com/thmsrgrs/iDIFr/issues).

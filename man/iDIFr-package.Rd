@@ -44,8 +44,8 @@ tidy(result)     # Flat data frame for further analysis
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/username/iDIFr}
-  \item Report bugs at \url{https://github.com/username/iDIFr/issues}
+  \item \url{https://github.com/thmsrgrs/iDIFr}
+  \item Report bugs at \url{https://github.com/thmsrgrs/iDIFr/issues}
 }
 
 }

@@ -1,4 +1,4 @@
-# Combine results from multiple DIF methods
+﻿# Combine results from multiple DIF methods
 # Internal function.
 
 .combine_results <- function(results_list, item_cols) {
@@ -194,7 +194,7 @@ print.idifr <- function(x, ...) {
             "    %-30s  %-15s  %-15s  %s\n",
             "Group", "Mean residual", "Deviation", "Direction"
           ))
-          cat("    ", strrep("─", 72), "\n", sep = "")
+          cat("    ", strrep("\u2500", 72), "\n", sep = "")
 
           for (k in seq_len(nrow(item_dir))) {
             d <- item_dir[k, ]

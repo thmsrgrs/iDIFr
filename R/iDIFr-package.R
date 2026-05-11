@@ -36,7 +36,8 @@
 #' ```
 #'
 #' @keywords internal
-#' @importFrom stats qlogis reorder p.adjust pchisq glm binomial anova qnorm
+#' @importFrom stats qlogis reorder p.adjust pchisq glm binomial anova qnorm setNames
+#' @importFrom utils combn head
 #' @importFrom rlang .data
 #' @importFrom dplyr case_when mutate filter group_by summarise left_join arrange desc
 #' @importFrom ggplot2 ggplot aes geom_tile geom_text scale_fill_gradient2 theme_minimal labs theme scale_fill_manual facet_wrap element_blank element_text

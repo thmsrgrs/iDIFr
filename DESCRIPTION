@@ -31,6 +31,6 @@ Suggests:
     rmarkdown
 VignetteBuilder: knitr
 Config/testthat/edition: 3
-URL: https://github.com/username/iDIFr
-BugReports: https://github.com/username/iDIFr/issues
+URL: https://github.com/thmsrgrs/iDIFr
+BugReports: https://github.com/thmsrgrs/iDIFr/issues
 Config/roxygen2/version: 8.0.0

@@ -1,8 +1,8 @@
-#' Intersectional Contrast Analysis (ICA)
+﻿#' Intersectional Contrast Analysis (ICA)
 #'
 #' @description
-#' Runs a series of `idifr()` analyses — one per demographic variable and one
-#' with the full intersectional formula — then classifies each item by
+#' Runs a series of `idifr()` analyses -- one per demographic variable and one
+#' with the full intersectional formula -- then classifies each item by
 #' comparing where it was flagged.
 #'
 #' ICA distinguishes four patterns:
@@ -21,8 +21,8 @@
 #' @param items Numeric or character vector identifying the item columns.
 #' @param group A one-sided formula with **at least two** demographic variables,
 #'   e.g. `~ gender * nationality * age_band`. ICA is not meaningful for a
-#'   single-variable design — use [idifr()] directly in that case.
-#' @param method `"LR"` or `"LRT"` — the DIF detection method passed to each
+#'   single-variable design -- use [idifr()] directly in that case.
+#' @param method `"LR"` or `"LRT"` -- the DIF detection method passed to each
 #'   `idifr()` call.
 #' @param min_cell_size Minimum acceptable group size passed to `idifr()`.
 #'   Default 50.
@@ -100,7 +100,7 @@ ica <- function(data,
   }
 
   if (verbose) {
-    cli::cli_h1(paste0("ICA — Intersectional Contrast Analysis (", method, ")"))
+    cli::cli_h1(paste0("ICA \u2014 Intersectional Contrast Analysis (", method, ")"))
     cli::cli_alert_info(
       "Running {length(vars) + 1L} idifr() analyses \\
        ({length(vars)} single-variable + 1 intersectional)."
@@ -235,7 +235,7 @@ ica <- function(data,
 #' @export
 print.idifr_ica <- function(x, ...) {
 
-  cli::cli_h1(paste0("ICA Results — ", x$method, " method"))
+  cli::cli_h1(paste0("ICA Results \u2014 ", x$method, " method"))
 
   cat(sprintf(
     "Design: %s  (%d intersectional groups)\n",
@@ -253,7 +253,7 @@ print.idifr_ica <- function(x, ...) {
 
   w_cls  <- 20
   w_n    <- 8
-  sep    <- strrep("─", w_cls + w_n + 40)
+  sep    <- strrep("\u2500", w_cls + w_n + 40)
 
   cat(sprintf("%-*s  %-*s  %s\n", w_cls, "Classification", w_n, "Items",
               "Example items"))
@@ -263,9 +263,9 @@ print.idifr_ica <- function(x, ...) {
     items_cls <- x$classification$item[
       x$classification$classification == cls_names[i]]
     n       <- length(items_cls)
-    example <- if (n == 0) "—" else {
+    example <- if (n == 0) "\u2014" else {
       ex <- paste(head(items_cls, 3), collapse = ", ")
-      if (n > 3) paste0(ex, " …") else ex
+      if (n > 3) paste0(ex, " \u2026") else ex
     }
     cat(sprintf("%-*s  %-*d  %s\n", w_cls, cls_labels[i], w_n, n, example))
   }

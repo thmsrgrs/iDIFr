@@ -24,9 +24,9 @@ ica(
 
 \item{group}{A one-sided formula with \strong{at least two} demographic variables,
 e.g. \code{~ gender * nationality * age_band}. ICA is not meaningful for a
-single-variable design — use \code{\link[=idifr]{idifr()}} directly in that case.}
+single-variable design -- use \code{\link[=idifr]{idifr()}} directly in that case.}
 
-\item{method}{\code{"LR"} or \code{"LRT"} — the DIF detection method passed to each
+\item{method}{\code{"LR"} or \code{"LRT"} -- the DIF detection method passed to each
 \code{idifr()} call.}
 
 \item{min_cell_size}{Minimum acceptable group size passed to \code{idifr()}.
@@ -67,8 +67,8 @@ flagged in each single-variable run (using \code{effect_threshold}).}
 }
 }
 \description{
-Runs a series of \code{idifr()} analyses — one per demographic variable and one
-with the full intersectional formula — then classifies each item by
+Runs a series of \code{idifr()} analyses -- one per demographic variable and one
+with the full intersectional formula -- then classifies each item by
 comparing where it was flagged.
 
 ICA distinguishes four patterns:
