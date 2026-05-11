@@ -21,7 +21,8 @@ Imports:
     cli,
     dplyr,
     ggplot2,
-    rlang
+    rlang,
+    strucchange
 LinkingTo:
     Rcpp
 Suggests:

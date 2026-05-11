@@ -113,6 +113,15 @@ print.idifr <- function(x, ...) {
           "  intersection=",  round(r$delta_r2_intersection,  3), ")"
         )
 
+      } else if (r$method == "RF") {
+        es_str  <- paste0("std-diff = ", r$std_diff, "  [", r$es_class, "]")
+        dif_str <- paste0(
+          "Source: ", if (!is.na(r$dif_source)) r$dif_source else "NA",
+          if (!is.na(r$split_variable))
+            paste0("  split: ", r$split_variable, " (depth=", r$split_depth, ")")
+          else ""
+        )
+
       } else {
         es_str  <- ""
         dif_str <- ""
@@ -164,6 +173,37 @@ print.idifr <- function(x, ...) {
               if (!is.na(d$direction)) d$direction else "NA",
               if (!is.na(d$value))    sprintf("%.3f",  d$value)    else "NA",
               if (!is.na(d$baseline)) sprintf("%.4f",  d$baseline) else "NA"
+            ))
+          }
+          cat("\n")
+
+        } else if (dif_t == "RF") {
+
+          # --- RF score-residual table -----------------------------------------
+          rf_res_row <- x$results[
+            x$results$method == "RF" & as.character(x$results$item) == item_i, ]
+          split_v <- if (nrow(rf_res_row) == 1) rf_res_row$split_variable else NA
+
+          header <- paste0(
+            "RF group score residuals",
+            if (!is.na(split_v)) paste0(" (primary split: ", split_v, ")"),
+            ":"
+          )
+          cat("\n   ", header, "\n")
+          cat(sprintf(
+            "    %-30s  %-15s  %-15s  %s\n",
+            "Group", "Mean residual", "Deviation", "Direction"
+          ))
+          cat("    ", strrep("─", 72), "\n", sep = "")
+
+          for (k in seq_len(nrow(item_dir))) {
+            d <- item_dir[k, ]
+            cat(sprintf(
+              "    %-30s  %-15s  %-15s  %s\n",
+              d$group,
+              if (!is.na(d$value))    sprintf("%.4f",  d$value)    else "NA",
+              if (!is.na(d$deviation)) sprintf("%+.4f", d$deviation) else "NA",
+              if (!is.na(d$direction)) d$direction else "NA"
             ))
           }
           cat("\n")
@@ -354,6 +394,7 @@ plot.idifr <- function(x, type = "items", ...) {
     res$method == "LR"  ~ res$delta_r2,
     res$method == "ID"  ~ res$delta_r2_omnibus,
     res$method == "LRT" ~ res$std_chi,
+    res$method == "RF"  ~ res$std_diff,
     TRUE                ~ NA_real_
   )
 
@@ -361,6 +402,7 @@ plot.idifr <- function(x, type = "items", ...) {
     res$method == "LR"  ~ res$ets_class,
     res$method == "ID"  ~ res$ets_class_omnibus,
     res$method == "LRT" ~ res$es_class,
+    res$method == "RF"  ~ res$es_class,
     TRUE                ~ NA_character_
   )
 

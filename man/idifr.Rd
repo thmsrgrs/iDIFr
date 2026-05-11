@@ -32,8 +32,9 @@ intersectional groups. Example: \code{~ gender * nationality * age_band}.}
 
 \item{method}{A character vector specifying which DIF method(s) to use.
 Must be one or more of \code{"LR"} (Logistic Regression), \code{"LRT"} (IRT
-Likelihood Ratio Test), or \code{"ID"} (Intersectional Decomposition). No
-default -- the user must choose.}
+Likelihood Ratio Test), \code{"ID"} (Intersectional Decomposition), or \code{"RF"}
+(Random Forest structural-change test). No default -- the user must
+choose.}
 
 \item{min_cell_size}{Minimum acceptable group size. Groups below this
 threshold trigger a warning. Also used as the crossing criterion when

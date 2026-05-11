@@ -18,8 +18,9 @@
 #'   intersectional groups. Example: `~ gender * nationality * age_band`.
 #' @param method A character vector specifying which DIF method(s) to use.
 #'   Must be one or more of `"LR"` (Logistic Regression), `"LRT"` (IRT
-#'   Likelihood Ratio Test), or `"ID"` (Intersectional Decomposition). No
-#'   default -- the user must choose.
+#'   Likelihood Ratio Test), `"ID"` (Intersectional Decomposition), or `"RF"`
+#'   (Random Forest structural-change test). No default -- the user must
+#'   choose.
 #' @param min_cell_size Minimum acceptable group size. Groups below this
 #'   threshold trigger a warning. Also used as the crossing criterion when
 #'   `exclude_below_min = TRUE` or `fully_crossed` is supplied. Default is 50.
@@ -229,6 +230,12 @@ idifr <- function(data,
                                     p_adjust, verbose)
   }
 
+  if ("RF" %in% method) {
+    if (verbose) cli::cli_h2("Running Random Forest DIF (RF)")
+    results_list[["RF"]] <- .run_rf(data, item_cols, groups, alpha,
+                                    p_adjust, verbose)
+  }
+
   # --- Combine results -------------------------------------------------------
 
   combined <- .combine_results(results_list, item_cols)
@@ -280,13 +287,13 @@ idifr <- function(data,
   if (missing(method) || is.null(method)) {
     stop(
       "You must specify at least one method.\n",
-      "  Choose from: \"LR\", \"LRT\", \"ID\"\n",
+      "  Choose from: \"LR\", \"LRT\", \"ID\", \"RF\"\n",
       "  Example: method = c(\"LR\", \"LRT\")",
       call. = FALSE
     )
   }
 
-  valid_methods <- c("LR", "LRT", "ID")
+  valid_methods <- c("LR", "LRT", "ID", "RF")
   bad_methods <- setdiff(toupper(method), valid_methods)
   if (length(bad_methods) > 0) {
     stop(

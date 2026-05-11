@@ -41,6 +41,7 @@
 #' @importFrom dplyr case_when mutate filter group_by summarise left_join arrange desc
 #' @importFrom ggplot2 ggplot aes geom_tile geom_text scale_fill_gradient2 theme_minimal labs theme scale_fill_manual facet_wrap element_blank element_text
 #' @importFrom cli cli_alert_warning cli_alert_info cli_alert_success cli_h1 cli_h2 cli_text col_yellow col_red col_green
+#' @importFrom strucchange efp sctest
 #' @importFrom Rcpp sourceCpp
 #' @useDynLib iDIFr, .registration = TRUE
 "_PACKAGE"
