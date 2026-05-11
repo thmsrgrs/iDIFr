@@ -102,7 +102,7 @@ positives in large samples.
 If you use `iDIFr` in published work, please cite:
 
 ```
-Author (2026). iDIFr: Intersectional Differential Item Functioning Analysis
+Rogers, T. (2026). iDIFr: Intersectional Differential Item Functioning Analysis
 in R. R package version 0.1.0. https://github.com/thmsrgrs/iDIFr
 ```
 
