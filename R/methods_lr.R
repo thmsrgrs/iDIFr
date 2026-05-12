@@ -109,21 +109,27 @@
       TRUE                                                             ~ "Uniform"
     )
 
+    # Interaction chi-sq = M1-M3 deviance minus M1-M2 deviance.
+    # Equals the M2-M3 LRT statistic; provides a direct single-df effect-size
+    # measure for the non-uniform component alone.
+    chi_sq_interaction <- lrt_m1_m3[2, "Deviance"] - lrt_m1_m2[2, "Deviance"]
+
     results[[i]] <- data.frame(
-      item              = item_name,
-      method            = "LR",
-      chi_sq_uniform    = lrt_m1_m2[2, "Deviance"],
-      df_uniform        = lrt_m1_m2[2, "Df"],
-      p_uniform         = p_uniform,
-      chi_sq_nonuniform = lrt_m1_m3[2, "Deviance"],
-      df_nonuniform     = lrt_m1_m3[2, "Df"],
-      p_nonuniform      = p_nonuniform,
-      p_interaction     = p_interaction,
-      p_overall         = p_overall,
-      delta_r2          = round(delta_r2, 4),
-      ets_class         = ets_class,
-      dif_type          = dif_type,
-      stringsAsFactors  = FALSE
+      item               = item_name,
+      method             = "LR",
+      chi_sq_uniform     = lrt_m1_m2[2, "Deviance"],
+      df_uniform         = lrt_m1_m2[2, "Df"],
+      p_uniform          = p_uniform,
+      chi_sq_nonuniform  = lrt_m1_m3[2, "Deviance"],
+      df_nonuniform      = lrt_m1_m3[2, "Df"],
+      p_nonuniform       = p_nonuniform,
+      chi_sq_interaction = chi_sq_interaction,
+      p_interaction      = p_interaction,
+      p_overall          = p_overall,
+      delta_r2           = round(delta_r2, 4),
+      ets_class          = ets_class,
+      dif_type           = dif_type,
+      stringsAsFactors   = FALSE
     )
 
     # --- Direction / discrimination table for this item ----------------------
@@ -152,9 +158,32 @@
 
   # --- P-value adjustment and flagging ---------------------------------------
 
-  result_df         <- do.call(rbind, results)
-  result_df$p_adj   <- stats::p.adjust(result_df$p_overall, method = p_adjust)
-  result_df$flagged <- result_df$p_adj < alpha & result_df$delta_r2 >= 0.035
+  result_df       <- do.call(rbind, results)
+  result_df$p_adj <- stats::p.adjust(result_df$p_overall, method = p_adjust)
+
+  # Two-criterion flagging:
+  #
+  # (a) Primary / uniform criterion — BH-adjusted omnibus p + ETS effect-size.
+  #     Works well for uniform DIF where the group shift dominates delta_r2.
+  #
+  # (b) Non-uniform supplement — bypasses BH on the interaction test because
+  #     for pure crossing-ICC DIF the omnibus Nagelkerke delta_r2 is small
+  #     (group effects partially cancel at the mean) and BH over-penalises the
+  #     omnibus p. Compensation: the omnibus gate is tightened to alpha/2
+  #     (stricter than the standard alpha), which roughly halves the false-
+  #     positive rate for the raw interaction check without being as harsh as
+  #     full Bonferroni. The chi-sq >= 3.84 threshold (1-df critical value at
+  #     alpha = 0.05) provides an additional magnitude filter.
+
+  nu_criterion <- !is.na(result_df$p_nonuniform)     &
+    result_df$p_nonuniform  < alpha / 2              &   # stricter omnibus gate
+    !is.na(result_df$p_interaction)                  &
+    result_df$p_interaction < alpha                  &
+    !is.na(result_df$chi_sq_interaction)             &
+    result_df$chi_sq_interaction >= 3.84
+
+  result_df$flagged <- (result_df$p_adj < alpha & result_df$delta_r2 >= 0.035) |
+    nu_criterion
 
   # --- Build direction tables for flagged items only -------------------------
 
@@ -349,21 +378,22 @@
 
 .lr_na_row <- function(item_name) {
   data.frame(
-    item              = item_name,
-    method            = "LR",
-    chi_sq_uniform    = NA_real_,
-    df_uniform        = NA_integer_,
-    p_uniform         = NA_real_,
-    chi_sq_nonuniform = NA_real_,
-    df_nonuniform     = NA_integer_,
-    p_nonuniform      = NA_real_,
-    p_interaction     = NA_real_,
-    p_overall         = NA_real_,
-    delta_r2          = NA_real_,
-    ets_class         = NA_character_,
-    dif_type          = NA_character_,
-    p_adj             = NA_real_,
-    flagged           = NA,
-    stringsAsFactors  = FALSE
+    item               = item_name,
+    method             = "LR",
+    chi_sq_uniform     = NA_real_,
+    df_uniform         = NA_integer_,
+    p_uniform          = NA_real_,
+    chi_sq_nonuniform  = NA_real_,
+    df_nonuniform      = NA_integer_,
+    p_nonuniform       = NA_real_,
+    chi_sq_interaction = NA_real_,
+    p_interaction      = NA_real_,
+    p_overall          = NA_real_,
+    delta_r2           = NA_real_,
+    ets_class          = NA_character_,
+    dif_type           = NA_character_,
+    p_adj              = NA_real_,
+    flagged            = NA,
+    stringsAsFactors   = FALSE
   )
 }

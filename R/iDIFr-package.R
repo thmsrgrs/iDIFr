@@ -225,8 +225,10 @@ simulate_dif <- function(n_persons     = 500,
     if (dif_type == "uniform") {
       b_mat[is_focal, j] <- b[j] + dif_effect
     } else {
-      a_mat[is_focal, j] <- a[j] * (1 + dif_effect * 0.5)
-      b_mat[is_focal, j] <- b[j] + dif_effect * 0.3
+      # Pure discrimination shift: multiply focal group's a-parameter only.
+      # b is left unchanged so the ICCs cross, which is the defining
+      # characteristic of non-uniform DIF.
+      a_mat[is_focal, j] <- a[j] * (1 + dif_effect)
     }
   }
 
@@ -236,8 +238,7 @@ simulate_dif <- function(n_persons     = 500,
     if (dif_type == "uniform") {
       b_mat[in_target, j] <- b[j] + dif_effect
     } else {
-      a_mat[in_target, j] <- a[j] * (1 + dif_effect * 0.5)
-      b_mat[in_target, j] <- b[j] + dif_effect * 0.3
+      a_mat[in_target, j] <- a[j] * (1 + dif_effect)
     }
   }
 
