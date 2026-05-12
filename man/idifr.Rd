@@ -9,6 +9,7 @@ idifr(
   items,
   group,
   method,
+  ica = FALSE,
   min_cell_size = 50,
   exclude_below_min = FALSE,
   fully_crossed = NULL,
@@ -32,9 +33,16 @@ intersectional groups. Example: \code{~ gender * nationality * age_band}.}
 
 \item{method}{A character vector specifying which DIF method(s) to use.
 Must be one or more of \code{"LR"} (Logistic Regression), \code{"LRT"} (IRT
-Likelihood Ratio Test), \code{"ID"} (Intersectional Decomposition), or \code{"RF"}
-(Random Forest structural-change test). No default -- the user must
-choose.}
+Likelihood Ratio Test), or \code{"RF"} (Random Forest structural-change test).
+No default -- the user must choose.}
+
+\item{ica}{Logical. If \code{TRUE} and the group formula contains two or more
+variables, runs an Intersectional Contrast Analysis (ICA) after the main
+analysis: one \code{idifr()} per demographic variable is run silently, and each
+item is classified as \code{"amplified"}, \code{"pure_intersection"}, \code{"obscured"},
+or \code{"none"} based on where it was flagged. The ICA table is stored in
+\code{result$ica} and printed by \code{print()}. If the formula has only one
+variable, a message is printed and ICA is skipped. Default \code{FALSE}.}
 
 \item{min_cell_size}{Minimum acceptable group size. Groups below this
 threshold trigger a warning. Also used as the crossing criterion when
@@ -89,6 +97,10 @@ cell sizes, and any small-cell warnings.}
 \code{exclude_below_min} or \code{fully_crossed}, or \code{NULL} if no exclusions.}
 \item{excluded_values}{Named list of value_selection filters applied,
 or \code{NULL} if none.}
+\item{ica}{Data frame of ICA classifications (one row per item per
+method) when \code{ica = TRUE} and the design is intersectional, otherwise
+\code{NULL}. Columns: \code{item}, \code{method}, \code{ica_class}, \code{marginal_vars},
+\code{intersectional_flag}.}
 }
 }
 \description{

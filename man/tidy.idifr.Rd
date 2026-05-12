@@ -16,6 +16,8 @@ test statistics, p-values, effect sizes, and DIF classification.}
 \item{\code{"direction"}}{One row per group per flagged item. Shows
 direction and magnitude of DIF for each group. Only available
 when \code{method} includes \code{"LR"}.}
+\item{\code{"ica"}}{ICA classification table (one row per item per method).
+Only available when \code{idifr()} was called with \code{ica = TRUE}.}
 }}
 
 \item{...}{Ignored.}

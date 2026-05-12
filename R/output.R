@@ -13,7 +13,7 @@
   for (m in names(results_list)) {
     res <- results_list[[m]]
 
-    # LR and ID return a list; LRT returns a data frame directly
+    # LR returns a list; LRT returns a data frame directly
     if (is.list(res) && !is.data.frame(res)) {
       item_dfs[[m]]   <- res$item_results
       if (!is.null(res$group_direction)) {
@@ -103,16 +103,6 @@ print.idifr <- function(x, ...) {
         es_str  <- paste0("std-chi  = ", r$std_chi, "  [", r$es_class, "]")
         dif_str <- if (!is.na(r$dif_type)) r$dif_type else ""
 
-      } else if (r$method == "ID") {
-        es_str  <- paste0("delta-R2 = ", r$delta_r2_omnibus,
-                          "  [", r$ets_class_omnibus, "]")
-        dif_str <- paste0(
-          "Source: ", if (!is.na(r$dif_source)) r$dif_source else "NA",
-          "  (main=",         round(r$delta_r2_main,         3),
-          "  twoway=",        round(r$delta_r2_twoway,        3),
-          "  intersection=",  round(r$delta_r2_intersection,  3), ")"
-        )
-
       } else if (r$method == "RF") {
         es_str  <- paste0("std-diff = ", r$std_diff, "  [", r$es_class, "]")
         dif_str <- paste0(
@@ -145,39 +135,7 @@ print.idifr <- function(x, ...) {
 
         dif_t <- item_dir$dif_type[1]
 
-        if (dif_t == "ID") {
-
-          # --- ID decomposition table ------------------------------------------
-          # Pull omnibus delta-R2 from results (same source as the es_str line)
-          id_res_row   <- x$results[
-            x$results$method == "ID" & as.character(x$results$item) == item_i, ]
-          omnibus_r2   <- if (nrow(id_res_row) == 1) id_res_row$delta_r2_omnibus
-                          else NA_real_
-
-          header <- paste0(
-            "ID decomposition (omnibus delta-R2 = ",
-            round(omnibus_r2, 4), "):"
-          )
-          cat("\n   ", header, "\n")
-          cat(sprintf(
-            "    %-30s  %-26s  %-10s  %s\n",
-            "Test level", "Result", "chi-sq", "delta-R2"
-          ))
-          cat("    ", strrep("\u2500", 72), "\n", sep = "")
-
-          for (k in seq_len(nrow(item_dir))) {
-            d <- item_dir[k, ]
-            cat(sprintf(
-              "    %-30s  %-26s  %-10s  %s\n",
-              d$group,
-              if (!is.na(d$direction)) d$direction else "NA",
-              if (!is.na(d$value))    sprintf("%.3f",  d$value)    else "NA",
-              if (!is.na(d$baseline)) sprintf("%.4f",  d$baseline) else "NA"
-            ))
-          }
-          cat("\n")
-
-        } else if (dif_t == "RF") {
+        if (dif_t == "RF") {
 
           # --- RF score-residual table -----------------------------------------
           rf_res_row <- x$results[
@@ -267,11 +225,66 @@ print.idifr <- function(x, ...) {
     )
   }
 
+  # --- ICA section -----------------------------------------------------------
+
+  if (!is.null(x$ica)) {
+    cat("\n")
+    cli::cli_h2("ICA Classification")
+
+    for (m in x$method) {
+      ica_m <- x$ica[x$ica$method == m, ]
+
+      if (length(x$method) > 1) cat(sprintf("\n  Method: %s\n", m))
+
+      .print_ica_block(ica_m)
+    }
+
+    cat("\n")
+    cli::cli_alert_warning(
+      "ICA note: multiple analyses run without cross-analysis p-value \\
+       correction. Interpret 'pure_intersection' and 'obscured' \\
+       classifications with caution in small samples."
+    )
+    cat("\n")
+  }
+
   cat("\n")
   cli::cli_text("Use {.code summary()} for full results or {.code tidy()} for a flat data frame.")
   cat("\n")
 
   invisible(x)
+}
+
+
+.print_ica_block <- function(ica_m) {
+
+  cls_specs <- list(
+    list(key = "amplified",         label = "Amplified (DIF in single and intersectional)",
+         show_drivers = TRUE),
+    list(key = "pure_intersection", label = "Pure intersection (intersectional only)",
+         show_drivers = FALSE),
+    list(key = "obscured",          label = "Obscured (single-variable only)",
+         show_drivers = TRUE),
+    list(key = "none",              label = "No DIF",
+         show_drivers = FALSE)
+  )
+
+  for (spec in cls_specs) {
+    rows <- ica_m[ica_m$ica_class == spec$key, ]
+    n    <- nrow(rows)
+    plural <- if (n == 1) "item" else "items"
+    cat(sprintf("\n  %-50s %d %s\n", paste0(spec$label, ":"), n, plural))
+    if (n > 0 && spec$show_drivers) {
+      for (i in seq_len(n)) {
+        driver_str <- if (!is.na(rows$marginal_vars[i]))
+          paste0(" (driven by: ", rows$marginal_vars[i], ")")
+        else ""
+        cat(sprintf("    %s%s\n", rows$item[i], driver_str))
+      }
+    } else if (n > 0 && spec$key != "none") {
+      for (i in seq_len(n)) cat(sprintf("    %s\n", rows$item[i]))
+    }
+  }
 }
 
 
@@ -392,7 +405,6 @@ plot.idifr <- function(x, type = "items", ...) {
   # Standardise effect size column across methods
   res$es <- dplyr::case_when(
     res$method == "LR"  ~ res$delta_r2,
-    res$method == "ID"  ~ res$delta_r2_omnibus,
     res$method == "LRT" ~ res$std_chi,
     res$method == "RF"  ~ res$std_diff,
     TRUE                ~ NA_real_
@@ -400,7 +412,6 @@ plot.idifr <- function(x, type = "items", ...) {
 
   res$es_label <- dplyr::case_when(
     res$method == "LR"  ~ res$ets_class,
-    res$method == "ID"  ~ res$ets_class_omnibus,
     res$method == "LRT" ~ res$es_class,
     res$method == "RF"  ~ res$es_class,
     TRUE                ~ NA_character_
@@ -508,6 +519,8 @@ tidy <- function(x, ...) UseMethod("tidy")
 #'     \item{`"direction"`}{One row per group per flagged item. Shows
 #'       direction and magnitude of DIF for each group. Only available
 #'       when `method` includes `"LR"`.}
+#'     \item{`"ica"`}{ICA classification table (one row per item per method).
+#'       Only available when `idifr()` was called with `ica = TRUE`.}
 #'   }
 #' @param ... Ignored.
 #
@@ -526,7 +539,7 @@ tidy <- function(x, ...) UseMethod("tidy")
 #' @export
 tidy.idifr <- function(x, table = "results", ...) {
 
-  table <- match.arg(table, c("results", "direction"))
+  table <- match.arg(table, c("results", "direction", "ica"))
 
   if (table == "results") {
     return(x$results)
@@ -536,10 +549,18 @@ tidy.idifr <- function(x, table = "results", ...) {
     if (is.null(x$group_direction)) {
       message(
         "No direction table available. Direction tables are produced for ",
-        "flagged items when method = 'LR' or 'ID'."
+        "flagged items when method = 'LR'."
       )
       return(invisible(NULL))
     }
     return(x$group_direction)
+  }
+
+  if (table == "ica") {
+    if (is.null(x$ica)) {
+      message("No ICA table available. Re-run with ica = TRUE.")
+      return(invisible(NULL))
+    }
+    return(x$ica)
   }
 }

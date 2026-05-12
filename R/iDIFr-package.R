@@ -3,12 +3,13 @@
 #' @description
 #' A user-friendly toolkit for detecting Differential Item Functioning (DIF)
 #' using Logistic Regression (LR), the IRT Likelihood Ratio Test (LRT), and
-#' Intersectional Decomposition (ID). Designed for both standard two-group
-#' and intersectional multi-group designs.
+#' Random Forest structural-change tests (RF). Designed for both standard
+#' two-group and intersectional multi-group designs, with built-in
+#' Intersectional Contrast Analysis (ICA) via the `ica = TRUE` argument.
 #'
 #' ## Key functions
 #'
-#' - [idifr()]: Main entry point — run DIF analysis
+#' - [idifr()]: Main entry point -- run DIF analysis (set `ica = TRUE` for ICA)
 #' - [check_groups()]: Explore group structure and cell sizes
 #' - [merge_groups()]: Combine sparse intersectional cells
 #' - [tidy.idifr()]: Extract results as a flat data frame

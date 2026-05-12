@@ -8,7 +8,10 @@ Description: A user-friendly toolkit for detecting Differential Item Functioning
     Random Forest structural-change tests (RF). Designed for both standard two-group
     and intersectional multi-group designs, iDIFr prioritises effect size reporting
     alongside statistical significance, clear guidance on group construction, and
-    interpretable output suitable for applied testing contexts.
+    interpretable output suitable for applied testing contexts. Built-in
+    Intersectional Contrast Analysis (ICA) classifies items as amplified,
+    pure-intersection, obscured, or none by comparing single-variable and
+    intersectional analyses.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

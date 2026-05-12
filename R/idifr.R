@@ -18,9 +18,15 @@
 #'   intersectional groups. Example: `~ gender * nationality * age_band`.
 #' @param method A character vector specifying which DIF method(s) to use.
 #'   Must be one or more of `"LR"` (Logistic Regression), `"LRT"` (IRT
-#'   Likelihood Ratio Test), `"ID"` (Intersectional Decomposition), or `"RF"`
-#'   (Random Forest structural-change test). No default -- the user must
-#'   choose.
+#'   Likelihood Ratio Test), or `"RF"` (Random Forest structural-change test).
+#'   No default -- the user must choose.
+#' @param ica Logical. If `TRUE` and the group formula contains two or more
+#'   variables, runs an Intersectional Contrast Analysis (ICA) after the main
+#'   analysis: one `idifr()` per demographic variable is run silently, and each
+#'   item is classified as `"amplified"`, `"pure_intersection"`, `"obscured"`,
+#'   or `"none"` based on where it was flagged. The ICA table is stored in
+#'   `result$ica` and printed by `print()`. If the formula has only one
+#'   variable, a message is printed and ICA is skipped. Default `FALSE`.
 #' @param min_cell_size Minimum acceptable group size. Groups below this
 #'   threshold trigger a warning. Also used as the crossing criterion when
 #'   `exclude_below_min = TRUE` or `fully_crossed` is supplied. Default is 50.
@@ -67,6 +73,10 @@
 #'     `exclude_below_min` or `fully_crossed`, or `NULL` if no exclusions.}
 #'   \item{excluded_values}{Named list of value_selection filters applied,
 #'     or `NULL` if none.}
+#'   \item{ica}{Data frame of ICA classifications (one row per item per
+#'     method) when `ica = TRUE` and the design is intersectional, otherwise
+#'     `NULL`. Columns: `item`, `method`, `ica_class`, `marginal_vars`,
+#'     `intersectional_flag`.}
 #' }
 #'
 #' @examples
@@ -118,6 +128,7 @@ idifr <- function(data,
                   items,
                   group,
                   method,
+                  ica               = FALSE,
                   min_cell_size     = 50,
                   exclude_below_min = FALSE,
                   fully_crossed     = NULL,
@@ -224,12 +235,6 @@ idifr <- function(data,
                                       alpha, p_adjust, verbose)
   }
 
-  if ("ID" %in% method) {
-    if (verbose) cli::cli_h2("Running Intersectional Decomposition (ID)")
-    results_list[["ID"]] <- .run_id(data, item_cols, groups, alpha,
-                                    p_adjust, verbose)
-  }
-
   if ("RF" %in% method) {
     if (verbose) cli::cli_h2("Running Random Forest DIF (RF)")
     results_list[["RF"]] <- .run_rf(data, item_cols, groups, alpha,
@@ -239,6 +244,41 @@ idifr <- function(data,
   # --- Combine results -------------------------------------------------------
 
   combined <- .combine_results(results_list, item_cols)
+
+  # --- ICA (Intersectional Contrast Analysis) --------------------------------
+
+  ica_df <- NULL
+
+  if (isTRUE(ica)) {
+    vars_ica <- all.vars(group)
+    if (length(vars_ica) < 2) {
+      if (verbose) {
+        cli::cli_alert_info(
+          "ICA skipped: group formula has only 1 variable. \\
+           ICA is meaningful only for intersectional (2+ variable) designs."
+        )
+        cat("\n")
+      }
+    } else {
+      # Build a temporary idifr object representing the main run so that
+      # .run_ica_internal() can call tidy() on it
+      tmp_main <- structure(
+        list(results = combined$results, method = method, items = item_cols),
+        class = "idifr"
+      )
+      ica_df <- .run_ica_internal(
+        data        = data,
+        item_cols   = item_cols,
+        group       = group,
+        method      = method,
+        min_cell_size = min_cell_size,
+        alpha       = alpha,
+        p_adjust    = p_adjust,
+        main_result = tmp_main,
+        verbose     = verbose
+      )
+    }
+  }
 
   # --- Build and return idifr object -----------------------------------------
 
@@ -254,7 +294,8 @@ idifr <- function(data,
       alpha            = alpha,
       p_adjust         = p_adjust,
       excluded_groups  = if (length(excluded_groups) > 0) unique(excluded_groups) else NULL,
-      excluded_values  = value_selection
+      excluded_values  = value_selection,
+      ica              = ica_df
     ),
     class = "idifr"
   )
@@ -287,13 +328,13 @@ idifr <- function(data,
   if (missing(method) || is.null(method)) {
     stop(
       "You must specify at least one method.\n",
-      "  Choose from: \"LR\", \"LRT\", \"ID\", \"RF\"\n",
+      "  Choose from: \"LR\", \"LRT\", \"RF\"\n",
       "  Example: method = c(\"LR\", \"LRT\")",
       call. = FALSE
     )
   }
 
-  valid_methods <- c("LR", "LRT", "ID", "RF")
+  valid_methods <- c("LR", "LRT", "RF")
   bad_methods <- setdiff(toupper(method), valid_methods)
   if (length(bad_methods) > 0) {
     stop(
@@ -516,4 +557,93 @@ idifr <- function(data,
   }
 
   cols
+}
+
+
+# --- ICA internal helpers -----------------------------------------------------
+
+# Extract names of flagged items for one method from a tidy results data frame.
+.ica_flagged_items <- function(tidy_res, m, alpha) {
+  m_res <- tidy_res[tidy_res$method == m & !is.na(tidy_res$flagged) &
+                      tidy_res$flagged, ]
+  as.character(m_res$item)
+}
+
+
+# Run ICA from inside idifr().  main_result must already have class "idifr".
+.run_ica_internal <- function(data, item_cols, group, method, min_cell_size,
+                               alpha, p_adjust, main_result, verbose) {
+
+  vars <- all.vars(group)
+
+  if (verbose) {
+    cli::cli_h2("ICA -- Intersectional Contrast Analysis")
+    cli::cli_alert_info(
+      "Running {length(vars)} single-variable \\
+       {if (length(vars) == 1) 'analysis' else 'analyses'} for contrast..."
+    )
+    cli::cli_alert_warning(
+      "ICA runs multiple analyses without cross-analysis p-value correction. \\
+       Interpret 'pure_intersection' and 'obscured' findings with caution \\
+       in small samples."
+    )
+    cat("\n")
+  }
+
+  # Single-variable runs (silent, all methods)
+  single_runs <- lapply(vars, function(v) {
+    f <- stats::as.formula(paste("~", v))
+    if (verbose) cli::cli_alert_info("  Single-variable run: {.field {v}}")
+    idifr(data, item_cols, f, method,
+          min_cell_size = min_cell_size,
+          alpha         = alpha,
+          p_adjust      = p_adjust,
+          verbose       = FALSE)
+  })
+  names(single_runs) <- vars
+  if (verbose) cat("\n")
+
+  main_td <- tidy(main_result)
+
+  # Classify per item per method
+  all_rows <- lapply(method, function(m) {
+
+    inter_flagged   <- .ica_flagged_items(main_td, m, alpha)
+    single_flags_m  <- stats::setNames(
+      lapply(vars, function(v) .ica_flagged_items(tidy(single_runs[[v]]), m, alpha)),
+      vars
+    )
+
+    lapply(item_cols, function(it) {
+
+      flagged_by_vars <- vars[vapply(vars,
+                                     function(v) it %in% single_flags_m[[v]],
+                                     logical(1))]
+      marginal <- length(flagged_by_vars) > 0
+      ix_dif   <- it %in% inter_flagged
+
+      ica_class <- dplyr::case_when(
+        marginal  &  ix_dif ~ "amplified",
+        !marginal &  ix_dif ~ "pure_intersection",
+        marginal  & !ix_dif ~ "obscured",
+        TRUE                 ~ "none"
+      )
+
+      data.frame(
+        item                = it,
+        method              = m,
+        ica_class           = ica_class,
+        marginal_vars       = if (marginal) paste(flagged_by_vars, collapse = ", ")
+                              else NA_character_,
+        intersectional_flag = ix_dif,
+        stringsAsFactors    = FALSE
+      )
+    })
+  })
+
+  ica_df <- do.call(rbind, lapply(all_rows, function(method_rows) {
+    do.call(rbind, method_rows)
+  }))
+  rownames(ica_df) <- NULL
+  ica_df
 }
