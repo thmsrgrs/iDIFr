@@ -223,9 +223,11 @@
 
   direction <- dplyr::case_when(
     is.na(deviation)  ~ NA_character_,
-    deviation >  0.05 ~ "Advantaged",
-    deviation < -0.05 ~ "Disadvantaged",
-    TRUE              ~ "Similar to average"
+    deviation >  0.05 ~ "Advantaged (easier)",
+    deviation < -0.05 ~ "Disadvantaged (harder)",
+    deviation >  0    ~ "Slightly advantaged",
+    deviation <  0    ~ "Slightly disadvantaged",
+    TRUE              ~ "No difference"
   )
 
   data.frame(
@@ -274,10 +276,12 @@
   deviation <- disc_values - baseline_disc
 
   direction <- dplyr::case_when(
-    is.na(deviation)  ~ NA_character_,
-    deviation >  0.20 ~ "More discriminating",
-    deviation < -0.20 ~ "Less discriminating",
-    TRUE              ~ "Similar to baseline"
+    is.na(deviation)       ~ NA_character_,
+    deviation >  0.20      ~ "More discriminating",
+    deviation < -0.20      ~ "Less discriminating",
+    deviation >  0         ~ "Slightly more discriminating",
+    deviation <  0         ~ "Slightly less discriminating",
+    TRUE                   ~ "No difference"
   )
 
   data.frame(
