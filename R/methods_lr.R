@@ -23,7 +23,14 @@
 #   with discrimination above baseline are more discriminating than expected;
 #   groups below are less discriminating.
 #
-# Effect sizes use Nagelkerke delta R-squared with ETS classification:
+# Effect sizes use Nagelkerke delta R-squared (three components):
+#   delta_r2_uniform     (M1 vs M2) — pure group-difficulty effect
+#   delta_r2_interaction (M2 vs M3) — non-uniform component only
+#   delta_r2_omnibus     (M1 vs M3) — total group effect
+# The primary reported delta_r2 is component-specific (uniform items use
+# delta_r2_uniform; non-uniform items use delta_r2_interaction; mixed items
+# use delta_r2_omnibus) so effect size is not diluted by the other component.
+# ETS classification applies to the reported delta_r2:
 # - A (negligible): delta R2 < 0.035
 # - B (moderate):   0.035 <= delta R2 < 0.070
 # - C (large):      delta R2 >= 0.070
@@ -88,14 +95,16 @@
     p_nonuniform <- lrt_m1_m3[2, "Pr(>Chi)"]
     p_interaction <- lrt_m2_m3[2, "Pr(>Chi)"]
 
-    # Nagelkerke delta R-squared
-    delta_r2_uniform    <- .nagelkerke_delta(m1, m2)
-    delta_r2_nonuniform <- .nagelkerke_delta(m1, m3)
+    # Three Nagelkerke delta R-squared values — one per model step:
+    #   uniform:     M1 vs M2 — pure group-difficulty effect
+    #   interaction: M2 vs M3 — non-uniform component only (after removing uniform)
+    #   omnibus:     M1 vs M3 — total group effect (uniform + non-uniform)
+    delta_r2_uniform     <- .nagelkerke_delta(m1, m2)
+    delta_r2_interaction <- .nagelkerke_delta(m2, m3)
+    delta_r2_omnibus     <- .nagelkerke_delta(m1, m3)
 
-    p_overall <- min(p_uniform, p_nonuniform, na.rm = TRUE)
-    delta_r2  <- max(delta_r2_uniform, delta_r2_nonuniform, na.rm = TRUE)
-
-    ets_class <- .ets_classify(delta_r2)
+    # Interaction chi-sq = M1-M3 deviance minus M1-M2 deviance.
+    chi_sq_interaction <- lrt_m1_m3[2, "Deviance"] - lrt_m1_m2[2, "Deviance"]
 
     # Four-way classification using M1-M2, M1-M3, and M2-M3 LRTs:
     #   M1 vs M3 = omnibus test (any DIF at all)
@@ -109,27 +118,52 @@
       TRUE                                                             ~ "Uniform"
     )
 
-    # Interaction chi-sq = M1-M3 deviance minus M1-M2 deviance.
-    # Equals the M2-M3 LRT statistic; provides a direct single-df effect-size
-    # measure for the non-uniform component alone.
-    chi_sq_interaction <- lrt_m1_m3[2, "Deviance"] - lrt_m1_m2[2, "Deviance"]
+    # Primary reported effect size: the delta_r2 most sensitive to the DIF type.
+    # Using the component-specific measure avoids the dilution problem where
+    # interaction effects look small relative to the omnibus test.
+    delta_r2 <- dplyr::case_when(
+      is.na(dif_type) | dif_type == "None" ~ delta_r2_omnibus,
+      dif_type == "Uniform"                ~ delta_r2_uniform,
+      dif_type == "Non-uniform"            ~ delta_r2_interaction,
+      TRUE                                 ~ delta_r2_omnibus   # Uniform and Non-uniform
+    )
+
+    # p_overall for BH adjustment: use the test most relevant to the DIF type.
+    # Non-uniform: M1 vs M3 (omnibus) captures the interaction via M3.
+    # All others:  M1 vs M2 (uniform) is the primary test.
+    p_overall <- dplyr::case_when(
+      is.na(dif_type)             ~ p_nonuniform,
+      dif_type == "Non-uniform"   ~ p_nonuniform,
+      TRUE                        ~ p_uniform
+    )
+
+    # ETS classification reflects the type-specific effect size.
+    ets_class <- dplyr::case_when(
+      is.na(dif_type) | dif_type == "None"       ~ "A (negligible)",
+      dif_type == "Uniform"                       ~ .ets_classify(delta_r2_uniform),
+      dif_type == "Non-uniform"                   ~ .ets_classify(delta_r2_interaction),
+      TRUE                                        ~ .ets_classify(delta_r2_omnibus)
+    )
 
     results[[i]] <- data.frame(
-      item               = item_name,
-      method             = "LR",
-      chi_sq_uniform     = lrt_m1_m2[2, "Deviance"],
-      df_uniform         = lrt_m1_m2[2, "Df"],
-      p_uniform          = p_uniform,
-      chi_sq_nonuniform  = lrt_m1_m3[2, "Deviance"],
-      df_nonuniform      = lrt_m1_m3[2, "Df"],
-      p_nonuniform       = p_nonuniform,
-      chi_sq_interaction = chi_sq_interaction,
-      p_interaction      = p_interaction,
-      p_overall          = p_overall,
-      delta_r2           = round(delta_r2, 4),
-      ets_class          = ets_class,
-      dif_type           = dif_type,
-      stringsAsFactors   = FALSE
+      item                 = item_name,
+      method               = "LR",
+      chi_sq_uniform       = lrt_m1_m2[2, "Deviance"],
+      df_uniform           = lrt_m1_m2[2, "Df"],
+      p_uniform            = p_uniform,
+      chi_sq_nonuniform    = lrt_m1_m3[2, "Deviance"],
+      df_nonuniform        = lrt_m1_m3[2, "Df"],
+      p_nonuniform         = p_nonuniform,
+      chi_sq_interaction   = chi_sq_interaction,
+      p_interaction        = p_interaction,
+      p_overall            = p_overall,
+      delta_r2_uniform     = round(delta_r2_uniform,     4),
+      delta_r2_interaction = round(delta_r2_interaction, 4),
+      delta_r2_omnibus     = round(delta_r2_omnibus,     4),
+      delta_r2             = round(delta_r2,             4),
+      ets_class            = ets_class,
+      dif_type             = dif_type,
+      stringsAsFactors     = FALSE
     )
 
     # --- Direction / discrimination table for this item ----------------------
@@ -147,7 +181,8 @@
     )
 
     if (verbose) {
-      status <- if (p_overall < alpha && delta_r2 >= 0.035) {
+      has_effect <- delta_r2_uniform >= 0.035 || delta_r2_interaction >= 0.035
+      status <- if (!is.na(p_overall) && p_overall < alpha && has_effect) {
         paste0("[", ets_class, "] ", dif_type, " DIF")
       } else {
         "[A] No DIF"
@@ -161,29 +196,37 @@
   result_df       <- do.call(rbind, results)
   result_df$p_adj <- stats::p.adjust(result_df$p_overall, method = p_adjust)
 
-  # Two-criterion flagging:
+  # Three-part flagging:
   #
-  # (a) Primary / uniform criterion — BH-adjusted omnibus p + ETS effect-size.
-  #     Works well for uniform DIF where the group shift dominates delta_r2.
+  # (a) Uniform criterion — BH-adjusted p + delta_r2_uniform >= 0.035.
   #
-  # (b) Non-uniform supplement — bypasses BH on the interaction test because
-  #     for pure crossing-ICC DIF the omnibus Nagelkerke delta_r2 is small
-  #     (group effects partially cancel at the mean) and BH over-penalises the
-  #     omnibus p. Compensation: the omnibus gate is tightened to alpha/2
-  #     (stricter than the standard alpha), which roughly halves the false-
-  #     positive rate for the raw interaction check without being as harsh as
-  #     full Bonferroni. The chi-sq >= 3.84 threshold (1-df critical value at
-  #     alpha = 0.05) provides an additional magnitude filter.
+  # (b) Uniform-and-Non-uniform criterion — BH-adjusted p + delta_r2_omnibus
+  #     >= 0.035. When both components are present, each is smaller than the
+  #     combined effect; using the omnibus prevents under-flagging mixed items.
+  #
+  # (c) Non-uniform supplement — bypasses BH because Nagelkerke R² for a 1-df
+  #     M2→M3 increment is inherently small for crossing ICC DIF (observed
+  #     values of 0.005–0.010 with strong effects) and never reaches 0.035.
+  #     Uses the stricter omnibus gate (p_nonuniform < alpha/2) to compensate
+  #     for not adjusting the interaction p-value.
 
-  nu_criterion <- !is.na(result_df$p_nonuniform)     &
-    result_df$p_nonuniform  < alpha / 2              &   # stricter omnibus gate
-    !is.na(result_df$p_interaction)                  &
-    result_df$p_interaction < alpha                  &
-    !is.na(result_df$chi_sq_interaction)             &
+  primary <- result_df$p_adj < alpha & (
+    (!is.na(result_df$delta_r2_uniform) &
+       result_df$delta_r2_uniform >= 0.035) |
+    (!is.na(result_df$delta_r2_omnibus) &
+       result_df$delta_r2_omnibus >= 0.035 &
+       !is.na(result_df$dif_type) &
+       result_df$dif_type == "Uniform and Non-uniform")
+  )
+
+  nu_supplement <- !is.na(result_df$p_nonuniform) &
+    result_df$p_nonuniform  < alpha / 2 &
+    !is.na(result_df$p_interaction) &
+    result_df$p_interaction < alpha &
+    !is.na(result_df$chi_sq_interaction) &
     result_df$chi_sq_interaction >= 3.84
 
-  result_df$flagged <- (result_df$p_adj < alpha & result_df$delta_r2 >= 0.035) |
-    nu_criterion
+  result_df$flagged <- primary | nu_supplement
 
   # --- Build direction tables for flagged items only -------------------------
 
@@ -378,22 +421,25 @@
 
 .lr_na_row <- function(item_name) {
   data.frame(
-    item               = item_name,
-    method             = "LR",
-    chi_sq_uniform     = NA_real_,
-    df_uniform         = NA_integer_,
-    p_uniform          = NA_real_,
-    chi_sq_nonuniform  = NA_real_,
-    df_nonuniform      = NA_integer_,
-    p_nonuniform       = NA_real_,
-    chi_sq_interaction = NA_real_,
-    p_interaction      = NA_real_,
-    p_overall          = NA_real_,
-    delta_r2           = NA_real_,
-    ets_class          = NA_character_,
-    dif_type           = NA_character_,
-    p_adj              = NA_real_,
-    flagged            = NA,
-    stringsAsFactors   = FALSE
+    item                 = item_name,
+    method               = "LR",
+    chi_sq_uniform       = NA_real_,
+    df_uniform           = NA_integer_,
+    p_uniform            = NA_real_,
+    chi_sq_nonuniform    = NA_real_,
+    df_nonuniform        = NA_integer_,
+    p_nonuniform         = NA_real_,
+    chi_sq_interaction   = NA_real_,
+    p_interaction        = NA_real_,
+    p_overall            = NA_real_,
+    delta_r2_uniform     = NA_real_,
+    delta_r2_interaction = NA_real_,
+    delta_r2_omnibus     = NA_real_,
+    delta_r2             = NA_real_,
+    ets_class            = NA_character_,
+    dif_type             = NA_character_,
+    p_adj                = NA_real_,
+    flagged              = NA,
+    stringsAsFactors     = FALSE
   )
 }

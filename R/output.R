@@ -96,7 +96,12 @@ print.idifr <- function(x, ...) {
       r <- item_rows[j, ]
 
       if (r$method == "LR") {
-        es_str  <- paste0("delta-R2 = ", r$delta_r2, "  [", r$ets_class, "]")
+        es_label <- dplyr::case_when(
+          !is.na(r$dif_type) & r$dif_type == "Non-uniform"            ~ "delta-R2(interaction)",
+          !is.na(r$dif_type) & r$dif_type == "Uniform and Non-uniform" ~ "delta-R2(omnibus)",
+          TRUE                                                          ~ "delta-R2(uniform)"
+        )
+        es_str  <- paste0(es_label, " = ", r$delta_r2, "  [", r$ets_class, "]")
         dif_str <- if (!is.na(r$dif_type)) r$dif_type else ""
 
       } else if (r$method == "LRT") {
