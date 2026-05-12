@@ -169,45 +169,52 @@ print.idifr <- function(x, ...) {
         } else {
 
           # --- LR group direction table ----------------------------------------
-          metric    <- item_dir$metric[1]
-          is_dichot <- isTRUE(x$design == "dichotomous")
-          ref_group <- if (is_dichot) x$groups$group_levels[1] else NULL
+          # May contain one sub-table (Uniform or Non-uniform) or two
+          # (Uniform and Non-uniform), stacked with different dif_type values.
+          is_dichot  <- isTRUE(x$design == "dichotomous")
+          ref_group  <- if (is_dichot) x$groups$group_levels[1] else NULL
+          sub_types  <- unique(item_dir$dif_type)
 
-          header <- dplyr::case_when(
-            dif_t == "Non-uniform" ~
-              "Group discrimination vs cross-group mean:",
-            grepl("group mean", metric, ignore.case = TRUE) & is_dichot ~
-              paste0("Group item difficulty (reference: ", ref_group,
-                     ";  mean beta = ", round(item_dir$baseline[1], 3), "):"),
-            grepl("group mean", metric, ignore.case = TRUE) ~
-              paste0("Group item difficulty vs cross-group mean (mean beta = ",
-                     round(item_dir$baseline[1], 3), "):"),
-            is_dichot ~
-              paste0("P(correct) at mean ability (reference: ", ref_group,
-                     ";  mean P = ", round(item_dir$baseline[1], 3), "):"),
-            TRUE ~
-              paste0("Group advantage at mean ability (cross-group mean P = ",
-                     round(item_dir$baseline[1], 3), "):")
-          )
+          for (sub_type in sub_types) {
+            sub_dir <- item_dir[item_dir$dif_type == sub_type, ]
+            metric  <- sub_dir$metric[1]
 
-          cat("\n   ", header, "\n")
-          cat(sprintf(
-            "    %-30s  %-26s  %-8s  %s\n",
-            "Group", "Direction", "Value", "Deviation"
-          ))
-          cat("    ", strrep("\u2500", 72), "\n", sep = "")
+            header <- dplyr::case_when(
+              sub_type == "Non-uniform" ~
+                "Group discrimination vs cross-group mean:",
+              grepl("group mean", metric, ignore.case = TRUE) & is_dichot ~
+                paste0("Group item difficulty (reference: ", ref_group,
+                       ";  mean beta = ", round(sub_dir$baseline[1], 3), "):"),
+              grepl("group mean", metric, ignore.case = TRUE) ~
+                paste0("Group item difficulty vs cross-group mean (mean beta = ",
+                       round(sub_dir$baseline[1], 3), "):"),
+              is_dichot ~
+                paste0("P(correct) at mean ability (reference: ", ref_group,
+                       ";  mean P = ", round(sub_dir$baseline[1], 3), "):"),
+              TRUE ~
+                paste0("Group advantage at mean ability (cross-group mean P = ",
+                       round(sub_dir$baseline[1], 3), "):")
+            )
 
-          for (k in seq_len(nrow(item_dir))) {
-            d <- item_dir[k, ]
-            val_str <- if (!is.na(d$value))    sprintf("%.3f",  d$value)    else "NA"
-            dev_str <- if (!is.na(d$deviation)) sprintf("%+.3f", d$deviation) else "NA"
-            dir_str <- if (!is.na(d$direction)) d$direction                  else "NA"
+            cat("\n   ", header, "\n")
             cat(sprintf(
               "    %-30s  %-26s  %-8s  %s\n",
-              d$group, dir_str, val_str, dev_str
+              "Group", "Direction", "Value", "Deviation"
             ))
+            cat("    ", strrep("\u2500", 72), "\n", sep = "")
+
+            for (k in seq_len(nrow(sub_dir))) {
+              d <- sub_dir[k, ]
+              val_str <- if (!is.na(d$value))     sprintf("%.3f",  d$value)     else "NA"
+              dev_str <- if (!is.na(d$deviation))  sprintf("%+.3f", d$deviation) else "NA"
+              dir_str <- if (!is.na(d$direction))  d$direction                   else "NA"
+              cat(sprintf(
+                "    %-30s  %-26s  %-8s  %s\n",
+                d$group, dir_str, val_str, dev_str
+              ))
+            }
+            cat("\n")
           }
-          cat("\n")
         }
       }
     }

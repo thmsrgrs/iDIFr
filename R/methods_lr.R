@@ -77,14 +77,16 @@
     # Likelihood ratio tests
     lrt_m1_m2 <- tryCatch(stats::anova(m1, m2, test = "LRT"), error = function(e) NULL)
     lrt_m1_m3 <- tryCatch(stats::anova(m1, m3, test = "LRT"), error = function(e) NULL)
+    lrt_m2_m3 <- tryCatch(stats::anova(m2, m3, test = "LRT"), error = function(e) NULL)
 
-    if (is.null(lrt_m1_m2) || is.null(lrt_m1_m3)) {
+    if (is.null(lrt_m1_m2) || is.null(lrt_m1_m3) || is.null(lrt_m2_m3)) {
       results[[i]] <- .lr_na_row(item_name)
       next
     }
 
     p_uniform    <- lrt_m1_m2[2, "Pr(>Chi)"]
     p_nonuniform <- lrt_m1_m3[2, "Pr(>Chi)"]
+    p_interaction <- lrt_m2_m3[2, "Pr(>Chi)"]
 
     # Nagelkerke delta R-squared
     delta_r2_uniform    <- .nagelkerke_delta(m1, m2)
@@ -95,11 +97,16 @@
 
     ets_class <- .ets_classify(delta_r2)
 
+    # Four-way classification using M1-M2, M1-M3, and M2-M3 LRTs:
+    #   M1 vs M3 = omnibus test (any DIF at all)
+    #   M2 vs M3 = interaction-only test (non-uniform beyond uniform)
+    #   M1 vs M2 = uniform-only test (group main effect)
     dif_type <- dplyr::case_when(
-      is.na(p_uniform) || is.na(p_nonuniform) ~ NA_character_,
-      p_nonuniform < alpha                     ~ "Non-uniform",
-      p_uniform    < alpha                     ~ "Uniform",
-      TRUE                                     ~ "None"
+      is.na(p_uniform) || is.na(p_nonuniform) || is.na(p_interaction) ~ NA_character_,
+      p_nonuniform >= alpha                                            ~ "None",
+      p_interaction <  alpha & p_uniform <  alpha                     ~ "Uniform and Non-uniform",
+      p_interaction <  alpha                                          ~ "Non-uniform",
+      TRUE                                                             ~ "Uniform"
     )
 
     results[[i]] <- data.frame(
@@ -111,6 +118,7 @@
       chi_sq_nonuniform = lrt_m1_m3[2, "Deviance"],
       df_nonuniform     = lrt_m1_m3[2, "Df"],
       p_nonuniform      = p_nonuniform,
+      p_interaction     = p_interaction,
       p_overall         = p_overall,
       delta_r2          = round(delta_r2, 4),
       ets_class         = ets_class,
@@ -170,13 +178,28 @@
           ts_scaled = stored$ts_scaled,
           grp_c     = stored$grp_c
         )
-      } else {
-        # Non-uniform — use discrimination deviation approach
+      } else if (dif_type == "Non-uniform") {
         .nonuniform_discrimination_table(
           item_name = item_name,
           m1        = stored$m1,
           m3        = stored$m3,
           grp_c     = stored$grp_c
+        )
+      } else {
+        # Uniform and Non-uniform — return both tables stacked
+        rbind(
+          .uniform_direction_table(
+            item_name = item_name,
+            m2        = stored$m2,
+            ts_scaled = stored$ts_scaled,
+            grp_c     = stored$grp_c
+          ),
+          .nonuniform_discrimination_table(
+            item_name = item_name,
+            m1        = stored$m1,
+            m3        = stored$m3,
+            grp_c     = stored$grp_c
+          )
         )
       }
     })
@@ -334,6 +357,7 @@
     chi_sq_nonuniform = NA_real_,
     df_nonuniform     = NA_integer_,
     p_nonuniform      = NA_real_,
+    p_interaction     = NA_real_,
     p_overall         = NA_real_,
     delta_r2          = NA_real_,
     ets_class         = NA_character_,
