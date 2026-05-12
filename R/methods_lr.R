@@ -257,13 +257,10 @@
   group_levels <- levels(grp_c)
   coefs_m3     <- stats::coef(m3)
 
-  # Baseline discrimination from M1 (no-DIF model)
-  baseline_disc <- as.numeric(stats::coef(m1)["ts_scaled"])
-
   # M3 main slope = discrimination for reference group
   ref_slope <- as.numeric(coefs_m3["ts_scaled"])
 
-  # Build effective discrimination for each group
+  # Build effective discrimination for each group from M3
   disc_values <- sapply(group_levels, function(grp) {
     interaction_term <- paste0("ts_scaled:grp_c", grp)
     if (interaction_term %in% names(coefs_m3)) {
@@ -273,24 +270,27 @@
     }
   })
 
-  deviation <- disc_values - baseline_disc
+  # Use cross-group mean as reference so deviations are
+  # symmetric: one group must be above, another below.
+  mean_disc <- mean(disc_values, na.rm = TRUE)
+  deviation <- disc_values - mean_disc
 
   direction <- dplyr::case_when(
-    is.na(deviation)       ~ NA_character_,
-    deviation >  0.20      ~ "More discriminating",
-    deviation < -0.20      ~ "Less discriminating",
-    deviation >  0         ~ "Slightly more discriminating",
-    deviation <  0         ~ "Slightly less discriminating",
-    TRUE                   ~ "No difference"
+    is.na(deviation)  ~ NA_character_,
+    deviation >  0.10 ~ "More discriminating than average",
+    deviation < -0.10 ~ "Less discriminating than average",
+    deviation >  0    ~ "Slightly more discriminating",
+    deviation <  0    ~ "Slightly less discriminating",
+    TRUE              ~ "No difference"
   )
 
   data.frame(
     item        = item_name,
     dif_type    = "Non-uniform",
     group       = group_levels,
-    metric      = "Discrimination (log-odds slope)",
+    metric      = "Discrimination vs cross-group mean",
     value       = round(disc_values, 3),
-    baseline    = round(baseline_disc, 3),
+    baseline    = round(mean_disc, 3),
     deviation   = round(deviation, 3),
     direction   = direction,
     stringsAsFactors = FALSE

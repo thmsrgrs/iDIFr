@@ -175,7 +175,7 @@ print.idifr <- function(x, ...) {
 
           header <- dplyr::case_when(
             dif_t == "Non-uniform" ~
-              "Group discrimination vs M1 baseline:",
+              "Group discrimination vs cross-group mean:",
             grepl("group mean", metric, ignore.case = TRUE) & is_dichot ~
               paste0("Group item difficulty (reference: ", ref_group,
                      ";  mean beta = ", round(item_dir$baseline[1], 3), "):"),
