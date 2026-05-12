@@ -54,6 +54,13 @@
 #' @param p_adjust Method for p-value adjustment across items. Passed to
 #'   [stats::p.adjust()]. Default is `"BH"` (Benjamini-Hochberg). Use
 #'   `"none"` to skip adjustment.
+#' @param nonuniform_es Character. The effect size metric to use for
+#'   non-uniform DIF detection when `method` includes `"LR"`. One of:
+#'   `"MAPPD"` (default) — Maximum Absolute Predicted Probability Difference
+#'   (probability scale, threshold 0.05); `"delta_r2"` — Nagelkerke ΔR² for
+#'   the interaction component (threshold 0.035); `"chi_sq"` — chi-square
+#'   statistic for the interaction term (threshold 3.84). MAPPD is always
+#'   computed and stored regardless of this setting.
 #' @param verbose Logical. If `TRUE` (default), prints progress and group
 #'   information during the analysis.
 #'
@@ -136,11 +143,14 @@ idifr <- function(data,
                   anchor            = NULL,
                   alpha             = 0.05,
                   p_adjust          = "BH",
+                  nonuniform_es     = "MAPPD",
                   verbose           = TRUE) {
 
   call <- match.call()
 
   # --- Input validation -------------------------------------------------------
+
+  nonuniform_es <- match.arg(nonuniform_es, c("MAPPD", "delta_r2", "chi_sq"))
 
   .validate_inputs(data, items, group, method, alpha, p_adjust,
                    exclude_below_min, fully_crossed, value_selection)
@@ -226,7 +236,7 @@ idifr <- function(data,
   if ("LR" %in% method) {
     if (verbose) cli::cli_h2("Running Logistic Regression DIF (LR)")
     results_list[["LR"]] <- .run_lr(data, item_cols, groups, alpha,
-                                    p_adjust, verbose)
+                                    p_adjust, verbose, nonuniform_es)
   }
 
   if ("LRT" %in% method) {
@@ -267,15 +277,16 @@ idifr <- function(data,
         class = "idifr"
       )
       ica_df <- .run_ica_internal(
-        data        = data,
-        item_cols   = item_cols,
-        group       = group,
-        method      = method,
+        data          = data,
+        item_cols     = item_cols,
+        group         = group,
+        method        = method,
         min_cell_size = min_cell_size,
-        alpha       = alpha,
-        p_adjust    = p_adjust,
-        main_result = tmp_main,
-        verbose     = verbose
+        alpha         = alpha,
+        p_adjust      = p_adjust,
+        nonuniform_es = nonuniform_es,
+        main_result   = tmp_main,
+        verbose       = verbose
       )
     }
   }
@@ -293,6 +304,7 @@ idifr <- function(data,
       items            = item_cols,
       alpha            = alpha,
       p_adjust         = p_adjust,
+      nonuniform_es    = nonuniform_es,
       excluded_groups  = if (length(excluded_groups) > 0) unique(excluded_groups) else NULL,
       excluded_values  = value_selection,
       ica              = ica_df
@@ -572,7 +584,8 @@ idifr <- function(data,
 
 # Run ICA from inside idifr().  main_result must already have class "idifr".
 .run_ica_internal <- function(data, item_cols, group, method, min_cell_size,
-                               alpha, p_adjust, main_result, verbose) {
+                               alpha, p_adjust, nonuniform_es = "MAPPD",
+                               main_result, verbose) {
 
   vars <- all.vars(group)
 
@@ -598,6 +611,7 @@ idifr <- function(data,
           min_cell_size = min_cell_size,
           alpha         = alpha,
           p_adjust      = p_adjust,
+          nonuniform_es = nonuniform_es,
           verbose       = FALSE)
   })
   names(single_runs) <- vars

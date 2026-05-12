@@ -28,14 +28,22 @@
 #   delta_r2_interaction (M2 vs M3) — non-uniform component only
 #   delta_r2_omnibus     (M1 vs M3) — total group effect
 # The primary reported delta_r2 is component-specific (uniform items use
-# delta_r2_uniform; non-uniform items use delta_r2_interaction; mixed items
-# use delta_r2_omnibus) so effect size is not diluted by the other component.
-# ETS classification applies to the reported delta_r2:
+# delta_r2_uniform; mixed items use delta_r2_omnibus).
+#
+# For non-uniform DIF the selected effect size (nonuniform_es argument) is
+# stored in nu_es / nu_es_class / nu_es_label.  MAPPD (Maximum Absolute
+# Predicted Probability Difference across groups over a theta grid) is the
+# default: it is on the probability scale and unaffected by the floor effects
+# that make delta_r2_interaction very small for crossing ICCs.
+#
+# ETS classification (A/B/C) applies to Nagelkerke delta R-squared:
 # - A (negligible): delta R2 < 0.035
 # - B (moderate):   0.035 <= delta R2 < 0.070
 # - C (large):      delta R2 >= 0.070
+# MAPPD classification: Negligible < 0.05 <= Moderate < 0.10 <= Large.
 
-.run_lr <- function(data, item_cols, groups, alpha, p_adjust, verbose) {
+.run_lr <- function(data, item_cols, groups, alpha, p_adjust, verbose,
+                    nonuniform_es = "MAPPD") {
 
   n_items      <- length(item_cols)
   group_vector <- groups$group_vector
@@ -118,9 +126,30 @@
       TRUE                                                             ~ "Uniform"
     )
 
-    # Primary reported effect size: the delta_r2 most sensitive to the DIF type.
-    # Using the component-specific measure avoids the dilution problem where
-    # interaction effects look small relative to the omnibus test.
+    # MAPPD: always computed from M3 for reporting, regardless of nonuniform_es.
+    mappd <- tryCatch(.mappd(m3, grp_c), error = function(e) NA_real_)
+
+    # Non-uniform effect size: selected metric (MAPPD, delta_r2, or chi_sq).
+    if (nonuniform_es == "MAPPD") {
+      nu_es       <- mappd
+      nu_es_class <- .mappd_classify(mappd)
+      nu_es_label <- "MAPPD"
+    } else if (nonuniform_es == "delta_r2") {
+      nu_es       <- delta_r2_interaction
+      nu_es_class <- .ets_classify(delta_r2_interaction)
+      nu_es_label <- "delta-R2(interaction)"
+    } else {   # "chi_sq"
+      nu_es       <- chi_sq_interaction
+      nu_es_class <- dplyr::case_when(
+        is.na(chi_sq_interaction)  ~ NA_character_,
+        chi_sq_interaction >= 10   ~ "Large",
+        chi_sq_interaction >= 5    ~ "Moderate",
+        TRUE                       ~ "Negligible"
+      )
+      nu_es_label <- "chi2(interaction)"
+    }
+
+    # Primary reported delta_r2 is type-specific (Nagelkerke scale throughout).
     delta_r2 <- dplyr::case_when(
       is.na(dif_type) | dif_type == "None" ~ delta_r2_omnibus,
       dif_type == "Uniform"                ~ delta_r2_uniform,
@@ -137,12 +166,12 @@
       TRUE                        ~ p_uniform
     )
 
-    # ETS classification reflects the type-specific effect size.
+    # ETS classification for uniform items; nu_es_class for non-uniform.
     ets_class <- dplyr::case_when(
-      is.na(dif_type) | dif_type == "None"       ~ "A (negligible)",
-      dif_type == "Uniform"                       ~ .ets_classify(delta_r2_uniform),
-      dif_type == "Non-uniform"                   ~ .ets_classify(delta_r2_interaction),
-      TRUE                                        ~ .ets_classify(delta_r2_omnibus)
+      is.na(dif_type) | dif_type == "None"  ~ "A (negligible)",
+      dif_type == "Uniform"                 ~ .ets_classify(delta_r2_uniform),
+      dif_type == "Non-uniform"             ~ nu_es_class,
+      TRUE                                  ~ .ets_classify(delta_r2_omnibus)
     )
 
     results[[i]] <- data.frame(
@@ -161,6 +190,10 @@
       delta_r2_interaction = round(delta_r2_interaction, 4),
       delta_r2_omnibus     = round(delta_r2_omnibus,     4),
       delta_r2             = round(delta_r2,             4),
+      mappd                = round(mappd,                4),
+      nu_es                = round(nu_es,                4),
+      nu_es_class          = nu_es_class,
+      nu_es_label          = nu_es_label,
       ets_class            = ets_class,
       dif_type             = dif_type,
       stringsAsFactors     = FALSE
@@ -181,7 +214,9 @@
     )
 
     if (verbose) {
-      has_effect <- delta_r2_uniform >= 0.035 || delta_r2_interaction >= 0.035
+      nu_thresh  <- switch(nonuniform_es, MAPPD = 0.05, delta_r2 = 0.035, chi_sq = 3.84)
+      has_effect <- delta_r2_uniform >= 0.035 ||
+        (!is.na(nu_es) && nu_es >= nu_thresh)
       status <- if (!is.na(p_overall) && p_overall < alpha && has_effect) {
         paste0("[", ets_class, "] ", dif_type, " DIF")
       } else {
@@ -198,17 +233,17 @@
 
   # Three-part flagging:
   #
-  # (a) Uniform criterion — BH-adjusted p + delta_r2_uniform >= 0.035.
+  # (a) Uniform — BH-adjusted p + delta_r2_uniform >= 0.035.
   #
-  # (b) Uniform-and-Non-uniform criterion — BH-adjusted p + delta_r2_omnibus
-  #     >= 0.035. When both components are present, each is smaller than the
-  #     combined effect; using the omnibus prevents under-flagging mixed items.
+  # (b) Uniform-and-Non-uniform — BH-adjusted p + delta_r2_omnibus >= 0.035.
+  #     Components are individually smaller; omnibus avoids under-flagging.
   #
-  # (c) Non-uniform supplement — bypasses BH because Nagelkerke R² for a 1-df
-  #     M2→M3 increment is inherently small for crossing ICC DIF (observed
-  #     values of 0.005–0.010 with strong effects) and never reaches 0.035.
-  #     Uses the stricter omnibus gate (p_nonuniform < alpha/2) to compensate
-  #     for not adjusting the interaction p-value.
+  # (c) Non-uniform supplement — bypasses BH because the M2→M3 Nagelkerke
+  #     increment and related metrics are inherently small for crossing ICC DIF
+  #     even with strong effects. Compensates with a stricter omnibus gate
+  #     (p_nonuniform < alpha/2). Threshold is metric-specific.
+
+  nu_threshold <- switch(nonuniform_es, MAPPD = 0.05, delta_r2 = 0.035, chi_sq = 3.84)
 
   primary <- result_df$p_adj < alpha & (
     (!is.na(result_df$delta_r2_uniform) &
@@ -220,11 +255,11 @@
   )
 
   nu_supplement <- !is.na(result_df$p_nonuniform) &
-    result_df$p_nonuniform  < alpha / 2 &
+    result_df$p_nonuniform < alpha / 2 &
     !is.na(result_df$p_interaction) &
     result_df$p_interaction < alpha &
-    !is.na(result_df$chi_sq_interaction) &
-    result_df$chi_sq_interaction >= 3.84
+    !is.na(result_df$nu_es) &
+    result_df$nu_es >= nu_threshold
 
   result_df$flagged <- primary | nu_supplement
 
@@ -419,6 +454,37 @@
   )
 }
 
+.mappd <- function(m3, grp_c, n_grid = 100) {
+  theta_grid   <- seq(-3, 3, length.out = n_grid)
+  group_levels <- levels(grp_c)
+  pred_list <- lapply(group_levels, function(g) {
+    pred_data <- data.frame(
+      ts_scaled = theta_grid,
+      grp_c     = factor(g, levels = group_levels)
+    )
+    stats::predict(m3, newdata = pred_data, type = "response")
+  })
+  max_diff <- 0
+  n_groups <- length(group_levels)
+  for (i in seq_len(n_groups)) {
+    for (j in seq_len(n_groups)) {
+      if (i >= j) next
+      diff     <- abs(pred_list[[i]] - pred_list[[j]])
+      max_diff <- max(max_diff, max(diff))
+    }
+  }
+  max_diff
+}
+
+.mappd_classify <- function(mappd) {
+  dplyr::case_when(
+    is.na(mappd)    ~ NA_character_,
+    mappd >= 0.10   ~ "Large",
+    mappd >= 0.05   ~ "Moderate",
+    TRUE            ~ "Negligible"
+  )
+}
+
 .lr_na_row <- function(item_name) {
   data.frame(
     item                 = item_name,
@@ -436,6 +502,10 @@
     delta_r2_interaction = NA_real_,
     delta_r2_omnibus     = NA_real_,
     delta_r2             = NA_real_,
+    mappd                = NA_real_,
+    nu_es                = NA_real_,
+    nu_es_class          = NA_character_,
+    nu_es_label          = NA_character_,
     ets_class            = NA_character_,
     dif_type             = NA_character_,
     p_adj                = NA_real_,

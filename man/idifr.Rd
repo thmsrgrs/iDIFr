@@ -17,6 +17,7 @@ idifr(
   anchor = NULL,
   alpha = 0.05,
   p_adjust = "BH",
+  nonuniform_es = "MAPPD",
   verbose = TRUE
 )
 }
@@ -76,6 +77,14 @@ all items are used as anchors in the first pass.}
 \item{p_adjust}{Method for p-value adjustment across items. Passed to
 \code{\link[stats:p.adjust]{stats::p.adjust()}}. Default is \code{"BH"} (Benjamini-Hochberg). Use
 \code{"none"} to skip adjustment.}
+
+\item{nonuniform_es}{Character. The effect size metric to use for
+non-uniform DIF detection when \code{method} includes \code{"LR"}. One of:
+\code{"MAPPD"} (default) — Maximum Absolute Predicted Probability Difference
+(probability scale, threshold 0.05); \code{"delta_r2"} — Nagelkerke ΔR² for
+the interaction component (threshold 0.035); \code{"chi_sq"} — chi-square
+statistic for the interaction term (threshold 3.84). MAPPD is always
+computed and stored regardless of this setting.}
 
 \item{verbose}{Logical. If \code{TRUE} (default), prints progress and group
 information during the analysis.}

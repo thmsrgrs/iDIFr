@@ -96,13 +96,25 @@ print.idifr <- function(x, ...) {
       r <- item_rows[j, ]
 
       if (r$method == "LR") {
-        es_label <- dplyr::case_when(
-          !is.na(r$dif_type) & r$dif_type == "Non-uniform"            ~ "delta-R2(interaction)",
-          !is.na(r$dif_type) & r$dif_type == "Uniform and Non-uniform" ~ "delta-R2(omnibus)",
-          TRUE                                                          ~ "delta-R2(uniform)"
-        )
-        es_str  <- paste0(es_label, " = ", r$delta_r2, "  [", r$ets_class, "]")
         dif_str <- if (!is.na(r$dif_type)) r$dif_type else ""
+
+        if (!is.na(r$dif_type) && r$dif_type == "Non-uniform") {
+          # Non-uniform only: show selected non-uniform effect size
+          es_str <- paste0(r$nu_es_label, " = ", r$nu_es, "  [", r$nu_es_class, "]")
+
+        } else if (!is.na(r$dif_type) && r$dif_type == "Uniform and Non-uniform") {
+          # Both: two-part display — uniform component + non-uniform component
+          es_str <- paste0(
+            "delta-R2(uniform) = ", r$delta_r2_uniform,
+            "  [", .ets_classify(r$delta_r2_uniform), "]",
+            "  |  ",
+            r$nu_es_label, " = ", r$nu_es, "  [", r$nu_es_class, "]"
+          )
+
+        } else {
+          # Uniform or None: show uniform delta-R2
+          es_str <- paste0("delta-R2(uniform) = ", r$delta_r2, "  [", r$ets_class, "]")
+        }
 
       } else if (r$method == "LRT") {
         es_str  <- paste0("std-chi  = ", r$std_chi, "  [", r$es_class, "]")
