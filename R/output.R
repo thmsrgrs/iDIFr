@@ -1,4 +1,4 @@
-﻿# Combine results from multiple DIF methods
+# Combine results from multiple DIF methods
 # Internal function.
 
 .combine_results <- function(results_list, item_cols) {
@@ -103,7 +103,7 @@ print.idifr <- function(x, ...) {
         es_str  <- paste0("std-chi  = ", r$std_chi, "  [", r$es_class, "]")
         dif_str <- if (!is.na(r$dif_type)) r$dif_type else ""
 
-      } else if (r$method == "RF") {
+      } else if (r$method == "MOB") {
         es_str  <- paste0("std-diff = ", r$std_diff, "  [", r$es_class, "]")
         dif_str <- paste0(
           "Source: ", if (!is.na(r$dif_source)) r$dif_source else "NA",
@@ -135,15 +135,15 @@ print.idifr <- function(x, ...) {
 
         dif_t <- item_dir$dif_type[1]
 
-        if (dif_t == "RF") {
+        if (dif_t == "MOB") {
 
           # --- RF score-residual table -----------------------------------------
           rf_res_row <- x$results[
-            x$results$method == "RF" & as.character(x$results$item) == item_i, ]
+            x$results$method == "MOB" & as.character(x$results$item) == item_i, ]
           split_v <- if (nrow(rf_res_row) == 1) rf_res_row$split_variable else NA
 
           header <- paste0(
-            "RF group score residuals",
+            "MOB group score residuals",
             if (!is.na(split_v)) paste0(" (primary split: ", split_v, ")"),
             ":"
           )
@@ -406,14 +406,14 @@ plot.idifr <- function(x, type = "items", ...) {
   res$es <- dplyr::case_when(
     res$method == "LR"  ~ res$delta_r2,
     res$method == "LRT" ~ res$std_chi,
-    res$method == "RF"  ~ res$std_diff,
+    res$method == "MOB"  ~ res$std_diff,
     TRUE                ~ NA_real_
   )
 
   res$es_label <- dplyr::case_when(
     res$method == "LR"  ~ res$ets_class,
     res$method == "LRT" ~ res$es_class,
-    res$method == "RF"  ~ res$es_class,
+    res$method == "MOB"  ~ res$es_class,
     TRUE                ~ NA_character_
   )
 

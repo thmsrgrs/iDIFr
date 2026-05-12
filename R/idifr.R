@@ -18,7 +18,7 @@
 #'   intersectional groups. Example: `~ gender * nationality * age_band`.
 #' @param method A character vector specifying which DIF method(s) to use.
 #'   Must be one or more of `"LR"` (Logistic Regression), `"LRT"` (IRT
-#'   Likelihood Ratio Test), or `"RF"` (Random Forest structural-change test).
+#'   Likelihood Ratio Test), or `"MOB"` (model-based recursive partitioning).
 #'   No default -- the user must choose.
 #' @param ica Logical. If `TRUE` and the group formula contains two or more
 #'   variables, runs an Intersectional Contrast Analysis (ICA) after the main
@@ -235,10 +235,10 @@ idifr <- function(data,
                                       alpha, p_adjust, verbose)
   }
 
-  if ("RF" %in% method) {
-    if (verbose) cli::cli_h2("Running Random Forest DIF (RF)")
-    results_list[["RF"]] <- .run_rf(data, item_cols, groups, alpha,
-                                    p_adjust, verbose)
+  if ("MOB" %in% method) {
+    if (verbose) cli::cli_h2("Running MOB -- Model-Based Recursive Partitioning (MOB)")
+    results_list[["MOB"]] <- .run_mob(data, item_cols, groups, alpha,
+                                      p_adjust, verbose)
   }
 
   # --- Combine results -------------------------------------------------------
@@ -328,13 +328,13 @@ idifr <- function(data,
   if (missing(method) || is.null(method)) {
     stop(
       "You must specify at least one method.\n",
-      "  Choose from: \"LR\", \"LRT\", \"RF\"\n",
+      "  Choose from: \"LR\", \"LRT\", \"MOB\"\n",
       "  Example: method = c(\"LR\", \"LRT\")",
       call. = FALSE
     )
   }
 
-  valid_methods <- c("LR", "LRT", "RF")
+  valid_methods <- c("LR", "LRT", "MOB")
   bad_methods <- setdiff(toupper(method), valid_methods)
   if (length(bad_methods) > 0) {
     stop(

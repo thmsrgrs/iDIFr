@@ -8,7 +8,7 @@
 \description{
 A user-friendly toolkit for detecting Differential Item Functioning (DIF)
 using Logistic Regression (LR), the IRT Likelihood Ratio Test (LRT), and
-Random Forest structural-change tests (RF). Designed for both standard
+model-based recursive partitioning (MOB). Designed for both standard
 two-group and intersectional multi-group designs, with built-in
 Intersectional Contrast Analysis (ICA) via the \code{ica = TRUE} argument.
 \subsection{Key functions}{

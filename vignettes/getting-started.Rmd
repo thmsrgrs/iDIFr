@@ -95,8 +95,7 @@ result <- idifr(
 |--------|-------------|
 | `"LR"` | Logistic Regression — flexible, non-IRT, effect size via Nagelkerke ΔR² |
 | `"LRT"` | IRT Likelihood Ratio Test — model-based, effect size via standardised chi |
-| `"RF"` | Random Forest structural-change test — non-parametric, detects intersectional instability |
-| `"ID"` | Intersectional Decomposition — decomposes DIF into main effects, two-way, and intersection |
+| `"MOB"` | Model-based recursive partitioning — non-parametric, detects intersectional instability |
 
 ### Step 4: Explore the results
 
@@ -167,7 +166,7 @@ result_merged <- idifr(merged_dat, 1:20,
 |--------|-------------|----------------|
 | LR | Nagelkerke ΔR² | A: <.035 · B: .035–.070 · C: ≥.070 |
 | LRT | Std. chi | Negligible: <.20 · Moderate: .20–.50 · Large: ≥.50 |
-| RF | Std. score difference | Negligible: <.20 · Moderate: .20–.50 · Large: ≥.50 |
+| MOB | Std. score difference | Negligible: <.20 · Moderate: .20–.50 · Large: ≥.50 |
 
 ---
 

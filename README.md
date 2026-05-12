@@ -9,8 +9,9 @@
 
 `iDIFr` is a user-friendly R package for detecting Differential Item
 Functioning (DIF) using Logistic Regression, IRT Likelihood Ratio Tests, and
-Random Forest structural-change tests — with first-class support for
-**intersectional group designs**.
+model-based recursive partitioning (MOB) — with first-class support for
+**intersectional group designs** and built-in **Intersectional Contrast
+Analysis (ICA)**.
 
 ## Why iDIFr?
 
@@ -23,8 +24,9 @@ non-English-speaking backgrounds aged 18–30", rather than in any single group.
 Key features:
 
 - **Intersectional group support** — define groups using `~ gender * nationality * age_band`
-- **Effect sizes as first-class outputs** — results lead with Nagelkerke ΔR² and ΔCFI, not just p-values
-- **Three methods in one interface** — LR, LRT, and RF with consistent output
+- **Effect sizes as first-class outputs** — results lead with Nagelkerke ΔR² and standardised chi, not just p-values
+- **Three methods in one interface** — LR, LRT, and MOB with consistent output
+- **Built-in ICA** — `ica = TRUE` classifies each item as *amplified*, *pure intersection*, *obscured*, or *none* by comparing single-variable and intersectional analyses
 - **Transparent cell-size guidance** — `check_groups()` and `merge_groups()` help you manage sparse intersectional cells
 - **Tidy output** — `tidy()` returns a flat data frame for use with `dplyr` and `ggplot2`
 
@@ -33,7 +35,7 @@ Key features:
 ```r
 # Development version from GitHub
 # install.packages("remotes")
-remotes::install_github("username/iDIFr")
+remotes::install_github("thmsrgrs/iDIFr")
 ```
 
 ## Quick start
@@ -58,6 +60,7 @@ summary(result)        # Full breakdown by method + concordance
 plot(result)           # Effect size heatmap
 plot(result, type = "concordance")  # Method agreement
 tidy(result)           # Flat data frame
+tidy(result, table = "direction")  # Group-level direction table
 ```
 
 ## Methods
@@ -65,25 +68,38 @@ tidy(result)           # Flat data frame
 | Argument | Method | Effect size | Best for |
 |----------|--------|-------------|----------|
 | `"LR"` | Logistic Regression | Nagelkerke ΔR² (ETS A/B/C) | General use, no IRT assumptions |
-| `"LRT"` | IRT Likelihood Ratio Test | Std. chi | IRT-based programmes |
-| `"RF"` | Random Forest (structural change) | Std. score difference | Intersectional designs, no linearity assumption |
-| `"ID"` | Intersectional Decomposition | Nagelkerke ΔR² | Decomposing DIF into main, two-way, intersection |
+| `"LRT"` | IRT Likelihood Ratio Test | Standardised chi | IRT-based programmes |
+| `"MOB"` | Model-based recursive partitioning | Standardised score difference | Intersectional designs, non-parametric |
 
-## Intersectional Contrast Analysis
+## Intersectional Contrast Analysis (ICA)
 
-`ica()` compares single-variable and intersectional `idifr()` analyses to
-classify each item as *amplified*, *pure intersection*, *obscured*, or *none*:
+Pass `ica = TRUE` to `idifr()` to run ICA automatically. After the main
+analysis, `iDIFr` runs one additional `idifr()` per demographic variable and
+classifies each item by comparing where it was flagged:
+
+| Classification | Meaning |
+|----------------|---------|
+| `amplified` | Flagged in single-variable *and* intersectional runs |
+| `pure_intersection` | Flagged only in the intersectional run |
+| `obscured` | Flagged in a single-variable run but not intersectionally |
+| `none` | Not flagged anywhere |
 
 ```r
-ica_res <- ica(
+result <- idifr(
   data   = my_data,
   items  = 1:20,
   group  = ~ gender * nationality * age_band,
-  method = "LR"
+  method = "LR",
+  ica    = TRUE
 )
-print(ica_res)
-tidy(ica_res)
+
+print(result)                    # ICA section printed automatically
+tidy(result, table = "ica")      # Flat ICA classification table
 ```
+
+> **Note:** ICA runs N + 1 analyses without cross-analysis p-value correction.
+> Interpret `pure_intersection` and `obscured` findings with caution in small
+> samples.
 
 ## Effect size thresholds
 
@@ -94,8 +110,50 @@ positives in large samples.
 | Method | Negligible | Moderate | Large |
 |--------|-----------|---------|-------|
 | LR (ΔR²) | < .035 | .035–.070 | ≥ .070 |
-| LRT (std. chi) | < 0.2 | 0.2–0.5 | ≥ .050 |
-| RF (std. diff) | < .20 | .20–.50 | ≥ .50 |
+| LRT (std. chi) | < 0.20 | 0.20–0.50 | ≥ 0.50 |
+| MOB (std. diff) | < .20 | .20–.50 | ≥ .50 |
+
+## Group management
+
+```r
+# Inspect cell sizes before analysis
+check_groups(my_data, group = ~ gender * nationality * age_band)
+
+# Merge sparse cells
+grp <- check_groups(my_data, group = ~ gender * nationality * age_band)
+merged_data <- merge_groups(grp, age_band = list("18-45" = c("18-30", "31-45")))
+
+# Exclude groups below a minimum size at run time
+result <- idifr(my_data, 1:20,
+                group = ~ gender * nationality * age_band,
+                method = "LR",
+                exclude_below_min = TRUE,
+                min_cell_size = 50)
+```
+
+## Simulating DIF data
+
+`simulate_dif()` generates synthetic dichotomous item response data with
+known DIF structure, including intersection-only DIF for validating `iDIFr`
+on controlled data:
+
+```r
+# Standard DIF
+dat <- simulate_dif(n_persons = 1000, n_items = 20, dif_items = c(3, 7))
+
+# DIF confined to a single intersectional cell
+dat_ix <- simulate_dif(
+  n_persons     = 2000,
+  n_items       = 20,
+  dif_items     = c(5, 12),
+  dif_effect    = 1.5,
+  dif_structure = "intersection",
+  dif_group     = list(group = "G1", nationality = "UK", age_band = "Young"),
+  demo_vars     = list(nationality = c("UK", "DE", "FR"),
+                       age_band    = c("Young", "Old")),
+  seed          = 42
+)
+```
 
 ## Citation
 

@@ -1,6 +1,6 @@
-# Random Forest / Structural Change DIF detection (internal)
+# MOB -- Model-Based recursive partitioning DIF detection (internal)
 # Based on Strobl, Wickelmaier & Zeileis (2011) model-based recursive
-# partitioning for DIF.
+# partitioning (MOB) for DIF.
 #
 # For each item, score residuals are computed (observed - predicted from a
 # logistic regression on total score). A recursive CUSUM tree is then built
@@ -10,7 +10,7 @@
 #
 # @importFrom strucchange efp sctest
 
-.run_rf <- function(data, item_cols, groups, alpha, p_adjust, verbose,
+.run_mob <- function(data, item_cols, groups, alpha, p_adjust, verbose,
                     irt_scores = FALSE) {
 
   vars      <- groups$vars
@@ -48,14 +48,14 @@
     )
 
     if (is.null(fit0)) {
-      results[[i]] <- .rf_na_row(item_name)
+      results[[i]] <- .mob_na_row(item_name)
       next
     }
 
     scores <- stats::residuals(fit0, type = "response")  # y - p_hat
 
     # --- Steps 2-3: Recursive CUSUM tree -------------------------------------
-    tree <- .rf_build_tree(
+    tree <- .mob_build_tree(
       vars_data  = vars_data,
       scores     = scores,
       vars       = vars,
@@ -67,7 +67,7 @@
 
     # --- Step 4: Effect size & classification --------------------------------
     if (!is.na(tree$split_var)) {
-      es_info  <- .rf_effect_size(scores, vars_data[[tree$split_var]])
+      es_info  <- .mob_effect_size(scores, vars_data[[tree$split_var]])
       std_diff <- round(es_info$std_diff, 4)
       es_class <- dplyr::case_when(
         std_diff >= 0.5 ~ "Large",
@@ -88,7 +88,7 @@
 
     results[[i]] <- data.frame(
       item           = item_name,
-      method         = "RF",
+      method         = "MOB",
       split_variable = tree$split_var,
       split_depth    = tree$depth,
       dif_source     = dif_source,
@@ -133,7 +133,7 @@
       stored <- direction_list[[nm]]
       if (is.null(stored) || is.na(stored$split_var) ||
           is.null(stored$var_data)) return(NULL)
-      .rf_direction_table(nm, stored$scores, stored$var_data, stored$depth)
+      .mob_direction_table(nm, stored$scores, stored$var_data, stored$depth)
     })
     dir_tables <- Filter(Negate(is.null), dir_tables)
     if (length(dir_tables) > 0) {
@@ -152,7 +152,7 @@
 # OLS-CUSUM test. The best variable (lowest p) becomes the split if it clears
 # the corrected threshold. Recursion continues into each level's subgroup.
 
-.rf_build_tree <- function(vars_data, scores, vars, alpha_node,
+.mob_build_tree <- function(vars_data, scores, vars, alpha_node,
                            min_n, max_depth, depth = 0L) {
 
   result <- list(split_var = NA_character_, p_split = NA_real_, depth = depth)
@@ -189,7 +189,7 @@
     for (lv in levels_v) {
       idx <- as.character(vars_data[[best_var]]) == lv
       if (sum(idx) >= min_n) {
-        child <- .rf_build_tree(
+        child <- .mob_build_tree(
           vars_data[idx, , drop = FALSE],
           scores[idx],
           remaining,
@@ -207,7 +207,7 @@
 
 # Effect size: max inter-group mean difference / pooled SD -------------------
 
-.rf_effect_size <- function(scores, var_data) {
+.mob_effect_size <- function(scores, var_data) {
   lv_chr   <- as.character(var_data)
   levels_v <- sort(unique(lv_chr))
 
@@ -237,7 +237,7 @@
 # direction: negative residual = Advantaged (item easier than expected);
 #            positive residual = Disadvantaged (item harder than expected).
 
-.rf_direction_table <- function(item_name, scores, var_data, depth) {
+.mob_direction_table <- function(item_name, scores, var_data, depth) {
   lv_chr       <- as.character(var_data)
   levels_v     <- sort(unique(lv_chr))
   overall_mean <- mean(scores)
@@ -246,7 +246,7 @@
 
   data.frame(
     item      = item_name,
-    dif_type  = "RF",
+    dif_type  = "MOB",
     group     = levels_v,
     metric    = "mean score residual",
     value     = round(means, 4),
@@ -260,10 +260,10 @@
 
 # NA placeholder row ----------------------------------------------------------
 
-.rf_na_row <- function(item_name) {
+.mob_na_row <- function(item_name) {
   data.frame(
     item           = item_name,
-    method         = "RF",
+    method         = "MOB",
     split_variable = NA_character_,
     split_depth    = NA_integer_,
     dif_source     = NA_character_,

@@ -33,7 +33,7 @@ intersectional groups. Example: \code{~ gender * nationality * age_band}.}
 
 \item{method}{A character vector specifying which DIF method(s) to use.
 Must be one or more of \code{"LR"} (Logistic Regression), \code{"LRT"} (IRT
-Likelihood Ratio Test), or \code{"RF"} (Random Forest structural-change test).
+Likelihood Ratio Test), or \code{"MOB"} (model-based recursive partitioning).
 No default -- the user must choose.}
 
 \item{ica}{Logical. If \code{TRUE} and the group formula contains two or more
