@@ -117,8 +117,32 @@ print.idifr <- function(x, ...) {
         }
 
       } else if (r$method == "LRT") {
-        es_str  <- paste0("std-chi  = ", r$std_chi, "  [", r$es_class, "]")
         dif_str <- if (!is.na(r$dif_type)) r$dif_type else ""
+
+        if (!is.na(r$dif_type) && r$dif_type == "Non-uniform") {
+          # Non-uniform only: show MAPPD (or std_chi_nonuniform if available)
+          if (!is.na(r$mappd)) {
+            es_str <- paste0("MAPPD = ", r$mappd, "  [", r$mappd_class, "]")
+          } else {
+            es_str <- paste0("std-chi(non-uniform) = ", r$std_chi_nonuniform,
+                             "  [", r$es_class_uniform, "]")
+          }
+
+        } else if (!is.na(r$dif_type) && r$dif_type == "Uniform and Non-uniform") {
+          # Both: uniform component | MAPPD
+          u_class <- if (!is.na(r$es_class_uniform)) r$es_class_uniform else r$es_class
+          es_str <- paste0(
+            "std-chi(uniform) = ", r$std_chi_uniform, "  [", u_class, "]",
+            "  |  ",
+            "MAPPD = ", r$mappd, "  [", r$mappd_class, "]"
+          )
+
+        } else {
+          # Uniform or None: show uniform std-chi
+          u_class <- if (!is.na(r$es_class_uniform)) r$es_class_uniform else r$es_class
+          es_str  <- paste0("std-chi(uniform) = ", r$std_chi_uniform,
+                            "  [", u_class, "]")
+        }
 
       } else if (r$method == "MOB") {
         es_str  <- paste0("std-diff = ", r$std_diff, "  [", r$es_class, "]")
@@ -199,6 +223,9 @@ print.idifr <- function(x, ...) {
             header <- dplyr::case_when(
               sub_type == "Non-uniform" ~
                 "Group discrimination vs cross-group mean:",
+              grepl("^Group item difficulty vs cross-group mean$",
+                    metric, ignore.case = TRUE) ~
+                "Group item difficulty vs cross-group mean:",
               grepl("group mean", metric, ignore.case = TRUE) & is_dichot ~
                 paste0("Group item difficulty (reference: ", ref_group,
                        ";  mean beta = ", round(sub_dir$baseline[1], 3), "):"),

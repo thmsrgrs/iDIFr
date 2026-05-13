@@ -242,7 +242,7 @@ idifr <- function(data,
   if ("LRT" %in% method) {
     if (verbose) cli::cli_h2("Running IRT Likelihood Ratio Test (LRT)")
     results_list[["LRT"]] <- .run_lrt(data, item_cols, groups, anchor,
-                                      alpha, p_adjust, verbose)
+                                      alpha, p_adjust, verbose, nonuniform_es)
   }
 
   if ("MOB" %in% method) {

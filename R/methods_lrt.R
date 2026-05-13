@@ -10,23 +10,31 @@
 #    On pass 1 all items are anchors.
 #
 # 2. For every item j, using the anchor-based posterior as the ability
-#    estimate:
-#    a. Fit item j's parameters constrained equal across groups (NR, pooled).
-#    b. Fit item j's parameters free per group (NR, per group).
-#    c. LRT_j = -2 * (LL_j_constrained - LL_j_free), chi-sq with
-#       df = 2*(n_groups - 1).
+#    estimate, fit three nested models:
+#    a. Constrained:       a and b equal across groups  (DIF null)
+#    b. Alpha-fixed:       a equal, b free per group    (uniform DIF only)
+#    c. Free:              a and b free per group       (omnibus)
 #
-# 3. Flag items with p_adj < alpha AND effect size >= moderate.
+#    Three LRTs per item:
+#      chi_uniform    = -2*(LL_c    - LL_alpha)  df = n_groups - 1
+#      chi_nonuniform = -2*(LL_alpha - LL_free)  df = n_groups - 1
+#      chi_omnibus    = -2*(LL_c    - LL_free)   df = 2*(n_groups - 1)
+#
+# 3. BH-correct uniform and non-uniform p-values separately.
+#    Classify dif_type; apply type-specific effect-size criterion.
 #
 # 4. If purify = TRUE, update the anchor set to exclude flagged items and
 #    repeat from step 1 until the flagged set is stable (max max_purify
-#    iterations). Using anchor-based posteriors for both constrained and
-#    free LLs gives unbiased ability estimates and controls FPR.
+#    iterations).
 #
 # Requires fit_2pl() from irt_2pl.R and the Rcpp kernels in src/em_2pl.cpp.
 
 .run_lrt <- function(data, item_cols, groups, anchor, alpha, p_adjust, verbose,
+                     nonuniform_es = "MAPPD",
                      purify = TRUE, max_purify = 5) {
+
+  # Resolve nonuniform_es: "delta_r2" is LR-only, fall back to "chi_sq" for LRT
+  nonuniform_es <- if (nonuniform_es == "delta_r2") "chi_sq" else nonuniform_es
 
   n_items      <- length(item_cols)
   resp_matrix  <- as.matrix(data[item_cols])
@@ -59,15 +67,13 @@
   # Iterative purification loop
   # ---------------------------------------------------------------------------
 
-  flagged_prev  <- character(0)
-  item_chi_sq   <- rep(NA_real_, n_items)
-  item_df       <- 2L * (n_groups - 1L)
-  item_p        <- rep(NA_real_, n_items)
-  std_chi       <- rep(NA_real_, n_items)
-  es_class      <- rep(NA_character_, n_items)
-  p_adj_vec     <- rep(NA_real_, n_items)
-  flagged_vec   <- rep(NA, n_items)
-  group_betas   <- matrix(NA_real_, nrow = n_groups, ncol = n_items)
+  flagged_prev <- character(0)
+
+  # Storage for final-pass results (updated each pass)
+  lls          <- NULL
+  item_df_om   <- 2L * (n_groups - 1L)
+  p_adj_om_vec <- rep(NA_real_, n_items)
+  flagged_vec  <- rep(NA, n_items)
 
   for (pass in seq_len(if (purify) max_purify else 1L)) {
 
@@ -109,20 +115,19 @@
       n_groups     = n_groups
     )
 
-    # LRT statistics
-    item_chi_sq  <- pmax(0, -2 * (lls$constrained - lls$free))
-    std_chi      <- sqrt(item_chi_sq / item_df)
-    item_p       <- stats::pchisq(item_chi_sq, item_df, lower.tail = FALSE)
-    es_class     <- .lrt_es_classify(std_chi, item_df)
-    p_adj_vec    <- stats::p.adjust(item_p, method = p_adjust)
-    flagged_vec  <- p_adj_vec < alpha & !is.na(es_class) & es_class != "Negligible"
-    group_betas  <- lls$group_betas
+    # Omnibus stats for purification criterion
+    chi_om     <- pmax(0, -2 * (lls$constrained - lls$free))
+    std_chi_om <- sqrt(chi_om / item_df_om)
+    p_om       <- stats::pchisq(chi_om, item_df_om, lower.tail = FALSE)
+    p_adj_om_vec <- stats::p.adjust(p_om, method = p_adjust)
+    es_class_om  <- .lrt_es_classify(std_chi_om, item_df_om)
 
+    flagged_vec   <- p_adj_om_vec < alpha &
+                     !is.na(es_class_om) & es_class_om != "Negligible"
     flagged_items <- item_cols[!is.na(flagged_vec) & flagged_vec]
 
     if (!purify || pass == max_purify) break
 
-    # Check convergence
     if (setequal(flagged_items, flagged_prev)) {
       .lrt_log(sprintf("Purification converged after %d pass(es)", pass),
                verbose, success = TRUE)
@@ -141,22 +146,131 @@
   }
 
   # ---------------------------------------------------------------------------
+  # Three-model decomposition on final lls
+  # ---------------------------------------------------------------------------
+
+  df_uniform    <- n_groups - 1L
+  df_nonuniform <- n_groups - 1L
+  df_omnibus    <- 2L * (n_groups - 1L)
+
+  chi_uniform    <- pmax(0, -2 * (lls$constrained - lls$alpha_fixed))
+  chi_nonuniform <- pmax(0, -2 * (lls$alpha_fixed  - lls$free))
+  chi_omnibus    <- pmax(0, -2 * (lls$constrained  - lls$free))
+
+  std_chi_uniform    <- sqrt(chi_uniform    / df_uniform)
+  std_chi_nonuniform <- sqrt(chi_nonuniform / df_nonuniform)
+  std_chi_omnibus    <- sqrt(chi_omnibus    / df_omnibus)
+
+  p_uniform    <- stats::pchisq(chi_uniform,    df_uniform,    lower.tail = FALSE)
+  p_nonuniform <- stats::pchisq(chi_nonuniform, df_nonuniform, lower.tail = FALSE)
+
+  p_uniform_adj    <- stats::p.adjust(p_uniform,    method = p_adjust)
+  p_nonuniform_adj <- stats::p.adjust(p_nonuniform, method = p_adjust)
+
+  es_class_uniform    <- .lrt_es_classify(std_chi_uniform,    df_uniform)
+  es_class_nonuniform <- .lrt_es_classify(std_chi_nonuniform, df_nonuniform)
+  es_class_omnibus    <- .lrt_es_classify(std_chi_omnibus,    df_omnibus)
+
+  # MAPPD from free model parameters
+  mappd       <- tryCatch(
+    .mappd_irt(lls$group_alphas, lls$group_betas, group_levels),
+    error = function(e) rep(NA_real_, n_items)
+  )
+  mappd_class <- vapply(mappd, .mappd_classify_scalar, character(1))
+
+  # Effect size thresholds
+  es_u_threshold  <- 0.10 * sqrt(df_uniform / 2)
+  nu_es_threshold <- if (nonuniform_es == "MAPPD") 0.05 else
+                       0.10 * sqrt(df_nonuniform / 2)
+
+  # Raw omnibus p-value (used in non-uniform supplement; not BH-corrected)
+  p_omnibus_raw <- stats::pchisq(chi_omnibus, df_omnibus, lower.tail = FALSE)
+
+  # Non-uniform effect size check
+  nu_es_ok <- if (nonuniform_es == "MAPPD") {
+    !is.na(mappd) & mappd >= nu_es_threshold
+  } else {
+    !is.na(std_chi_nonuniform) & std_chi_nonuniform >= nu_es_threshold
+  }
+
+  # Primary uniform flag: BH-adjusted uniform p + effect size
+  primary_uniform <- !is.na(p_uniform_adj) & p_uniform_adj < alpha &
+    !is.na(std_chi_uniform) & std_chi_uniform >= es_u_threshold
+
+  # Non-uniform supplement: bypass BH using raw omnibus p + MAPPD effect size.
+  # Mirrors the LR nu_supplement approach: raw omnibus < alpha guards against
+  # BH over-correction when few non-uniform items are present.  A lenient
+  # gate on the marginal non-uniform p (< 2*alpha) further requires that the
+  # chi_nonuniform component is at least nominally non-trivial, preventing
+  # false positives driven by large chi_uniform artefacts in null items.
+  # Only fires when the primary uniform criterion does not.
+  nu_supplement <- !is.na(p_omnibus_raw) & p_omnibus_raw < alpha &
+    !is.na(p_nonuniform) & p_nonuniform < 2 * alpha &
+    nu_es_ok & !primary_uniform
+
+  # Combined flagging
+  flagged_vec <- primary_uniform | nu_supplement
+
+  # DIF type classification
+  # "Uniform and Non-uniform": primary uniform flag AND marginal a-test (raw) is significant
+  # "Uniform":                 primary uniform flag only
+  # "Non-uniform":             nu_supplement only
+  # "None":                    neither
+  dif_type <- dplyr::case_when(
+    is.na(p_uniform_adj)                                                  ~ NA_character_,
+    primary_uniform & !is.na(p_nonuniform) & p_nonuniform < alpha         ~ "Uniform and Non-uniform",
+    primary_uniform                                                        ~ "Uniform",
+    nu_supplement                                                          ~ "Non-uniform",
+    TRUE                                                                   ~ "None"
+  )
+
+  # Type-specific primary p-values for display
+  p_overall <- dplyr::case_when(
+    is.na(dif_type)            ~ p_omnibus_raw,
+    dif_type == "Non-uniform"  ~ p_omnibus_raw,
+    TRUE                       ~ p_uniform
+  )
+  p_adj_primary <- dplyr::case_when(
+    is.na(dif_type)            ~ p_omnibus_raw,   # raw omnibus shown for non-uniform
+    dif_type == "Non-uniform"  ~ p_omnibus_raw,
+    TRUE                       ~ p_uniform_adj
+  )
+
+  # ---------------------------------------------------------------------------
   # Build result data frame
   # ---------------------------------------------------------------------------
 
   result_df <- data.frame(
-    item      = item_cols,
-    method    = "LRT",
-    chi_sq    = round(item_chi_sq, 3),
-    df        = item_df,
-    p_overall = item_p,
-    std_chi   = round(std_chi, 4),
-    es_class  = es_class,
-    dif_type  = "Uniform",
-    stringsAsFactors = FALSE
+    item                 = item_cols,
+    method               = "LRT",
+    # Omnibus (backwards compatible)
+    chi_sq               = round(chi_omnibus,    3),
+    df                   = df_omnibus,
+    std_chi              = round(std_chi_omnibus, 4),
+    es_class             = es_class_omnibus,
+    # Uniform component
+    chi_uniform          = round(chi_uniform,    3),
+    df_uniform           = df_uniform,
+    p_uniform            = p_uniform,
+    p_uniform_adj        = p_uniform_adj,
+    std_chi_uniform      = round(std_chi_uniform, 4),
+    es_class_uniform     = es_class_uniform,
+    # Non-uniform component
+    chi_nonuniform       = round(chi_nonuniform,    3),
+    df_nonuniform        = df_nonuniform,
+    p_nonuniform         = p_nonuniform,
+    p_nonuniform_adj     = p_nonuniform_adj,
+    std_chi_nonuniform   = round(std_chi_nonuniform, 4),
+    # MAPPD
+    mappd                = round(mappd, 4),
+    mappd_class          = mappd_class,
+    # Classification
+    dif_type             = dif_type,
+    p_overall            = p_overall,
+    stringsAsFactors     = FALSE
   )
 
-  result_df$p_adj   <- p_adj_vec
+  result_df$p_adj   <- p_adj_primary
   result_df$flagged <- flagged_vec
 
   # ---------------------------------------------------------------------------
@@ -167,13 +281,25 @@
     for (i in seq_len(nrow(result_df))) {
       r <- result_df[i, ]
       if (!is.na(r$flagged) && r$flagged) {
+        es_part <- if (!is.na(r$dif_type) && r$dif_type == "Non-uniform") {
+          if (nonuniform_es == "MAPPD")
+            sprintf("MAPPD=%-8.4f", r$mappd)
+          else
+            sprintf("std_chi(nu)=%-6.4f", r$std_chi_nonuniform)
+        } else {
+          sprintf("chi2=%-8.3f  std_chi=%-6.4f", r$chi_uniform, r$std_chi_uniform)
+        }
+        dif_str <- if (!is.na(r$dif_type)) r$dif_type else ""
         cat(sprintf(
-          "  %-20s  \u26a0  chi2=%-8.3f  std_chi=%-6.4f  [%s]\n",
-          r$item, r$chi_sq, r$std_chi, r$es_class
+          "  %-20s  ⚠  %s  [%s]  %s\n",
+          r$item, es_part,
+          if (!is.na(r$dif_type) && r$dif_type == "Non-uniform") r$mappd_class
+          else r$es_class_uniform,
+          dif_str
         ))
       } else {
         cat(sprintf(
-          "  %-20s  \u2713  No DIF  (chi2=%.3f  p=%.3f)\n",
+          "  %-20s  ✓  No DIF  (chi2=%.3f  p=%.3f)\n",
           r$item, r$chi_sq, r$p_adj
         ))
       }
@@ -182,7 +308,7 @@
   }
 
   # ---------------------------------------------------------------------------
-  # Direction table for flagged items
+  # Direction tables for flagged items
   # ---------------------------------------------------------------------------
 
   flagged_names   <- item_cols[!is.na(flagged_vec) & flagged_vec]
@@ -199,34 +325,80 @@
     dir_rows <- lapply(seq_along(flagged_names), function(fi) {
       item_name <- flagged_names[fi]
       j         <- which(item_cols == item_name)
-      betas     <- group_betas[, j]
-      ref_beta  <- mean(betas, na.rm = TRUE)
+      item_type <- result_df$dif_type[j]
 
-      rows <- lapply(seq_along(group_levels), function(gi) {
-        g   <- group_levels[gi]
-        dev <- betas[gi] - ref_beta
-        data.frame(
-          item      = item_name,
-          dif_type  = "Uniform",
-          group     = g,
-          metric    = "Item difficulty (beta vs group mean)",
-          value     = round(betas[gi], 3),
-          baseline  = round(ref_beta, 3),
-          deviation = round(dev, 3),
-          direction = dplyr::case_when(
-            is.na(dev)   ~ NA_character_,
-            dev < -0.20  ~ "Advantaged (easier)",
-            dev >  0.20  ~ "Disadvantaged (harder)",
-            TRUE         ~ "Similar to group mean"
-          ),
-          stringsAsFactors = FALSE
-        )
-      })
-      do.call(rbind, rows)
+      row_list <- list()
+
+      # --- Difficulty direction table (Uniform and Uniform+Non-uniform) -------
+      if (!is.na(item_type) &&
+          item_type %in% c("Uniform", "Uniform and Non-uniform")) {
+
+        betas    <- lls$group_betas[, j]
+        ref_beta <- mean(betas, na.rm = TRUE)
+
+        diff_rows <- lapply(seq_along(group_levels), function(gi) {
+          g   <- group_levels[gi]
+          dev <- if (!is.na(betas[gi])) betas[gi] - ref_beta else NA_real_
+          data.frame(
+            item      = item_name,
+            dif_type  = "Uniform",
+            group     = g,
+            metric    = "Group item difficulty vs cross-group mean",
+            value     = round(betas[gi], 3),
+            baseline  = round(ref_beta, 3),
+            deviation = round(dev, 3),
+            direction = dplyr::case_when(
+              is.na(dev)   ~ NA_character_,
+              dev < -0.20  ~ "Advantaged (easier)",
+              dev >  0.20  ~ "Disadvantaged (harder)",
+              TRUE         ~ "Similar to group mean"
+            ),
+            stringsAsFactors = FALSE
+          )
+        })
+        row_list <- c(row_list, diff_rows)
+      }
+
+      # --- Discrimination direction table (Non-uniform and Uniform+Non-uniform)
+      if (!is.na(item_type) &&
+          item_type %in% c("Non-uniform", "Uniform and Non-uniform")) {
+
+        alphas   <- lls$group_alphas[, j]
+        mean_a   <- mean(alphas, na.rm = TRUE)
+
+        disc_rows <- lapply(seq_along(group_levels), function(gi) {
+          g   <- group_levels[gi]
+          dev <- if (!is.na(alphas[gi])) alphas[gi] - mean_a else NA_real_
+          data.frame(
+            item      = item_name,
+            dif_type  = "Non-uniform",
+            group     = g,
+            metric    = "Discrimination vs cross-group mean",
+            value     = round(alphas[gi], 3),
+            baseline  = round(mean_a, 3),
+            deviation = round(dev, 3),
+            direction = dplyr::case_when(
+              is.na(dev)   ~ NA_character_,
+              dev >  0.10  ~ "More discriminating than average",
+              dev < -0.10  ~ "Less discriminating than average",
+              dev >  0     ~ "Slightly more discriminating",
+              dev <  0     ~ "Slightly less discriminating",
+              TRUE         ~ "No difference"
+            ),
+            stringsAsFactors = FALSE
+          )
+        })
+        row_list <- c(row_list, disc_rows)
+      }
+
+      if (length(row_list) > 0) do.call(rbind, row_list) else NULL
     })
 
-    group_direction <- do.call(rbind, dir_rows)
-    rownames(group_direction) <- NULL
+    dir_rows_clean <- Filter(Negate(is.null), dir_rows)
+    if (length(dir_rows_clean) > 0) {
+      group_direction <- do.call(rbind, dir_rows_clean)
+      rownames(group_direction) <- NULL
+    }
   }
 
   .lrt_log("LRT analysis complete", verbose, success = TRUE)
@@ -239,17 +411,20 @@
 }
 
 
-# --- Per-item constrained and free log-likelihoods ----------------------------
+# --- Per-item constrained, intermediate, and free log-likelihoods -------------
 #
-# Uses the anchor-based constrained model's posteriors for both the constrained
-# and free LL computation. This gives consistent ability estimates for both
-# hypotheses and is the key mechanism behind purification-based FPR control.
+# Three nested models per item, all using the anchor-based posterior:
 #
-# For each item j:
-#   Constrained LL: a_j, b_j fitted equal across groups (pooled NR)
-#   Free LL:        a_jg, b_jg fitted per group (per-group NR)
+#   Constrained:  a and b equal across groups      (DIF null)
+#   Alpha-fixed:  a equal across groups, b free    (uniform DIF only)
+#   Free:         a and b free per group            (omnibus)
 #
-# Both use the SAME anchor-posterior.
+# Returns a list with:
+#   constrained  -- constrained LL per item
+#   alpha_fixed  -- intermediate LL per item (a equal, b free per group)
+#   free         -- free LL per item
+#   group_betas  -- free-model per-group b estimates (n_groups x n_items)
+#   group_alphas -- free-model per-group a estimates (n_groups x n_items)
 
 .lrt_item_lls <- function(model, resp, group_levels, n_groups) {
 
@@ -269,8 +444,10 @@
   resp_s  <- resp; resp_s[!obs_mat] <- 0L
 
   ll_c        <- numeric(n_items)
+  ll_alpha    <- numeric(n_items)
   ll_f        <- numeric(n_items)
-  betas_g_mat <- matrix(NA_real_, nrow = n_groups, ncol = n_items)
+  betas_g_mat  <- matrix(NA_real_, nrow = n_groups, ncol = n_items)
+  alphas_g_mat <- matrix(NA_real_, nrow = n_groups, ncol = n_items)
 
   for (j in seq_len(n_items)) {
 
@@ -295,19 +472,55 @@
     a_c  <- .clamp(nr_c[1], 0.1, 5.0)
     b_c  <- .clamp(nr_c[2], -6.0, 6.0)
 
-    eta_c <- a_c * (nodes_obs - b_c)
-    P_c   <- pmin(pmax(1 / (1 + exp(-eta_c)), 1e-10), 1 - 1e-10)
-    px_c  <- ifelse(matrix(x_obs, length(obs_idx), n_nodes) == 1L, P_c, 1 - P_c)
+    eta_c   <- a_c * (nodes_obs - b_c)
+    P_c     <- pmin(pmax(1 / (1 + exp(-eta_c)), 1e-10), 1 - 1e-10)
+    px_c    <- ifelse(matrix(x_obs, length(obs_idx), n_nodes) == 1L, P_c, 1 - P_c)
     ll_c[j] <- sum(log(pmax(rowSums(post_obs * px_c), 1e-300)))
 
-    # --- Free: a_jg, b_jg per group ---
+    # --- Intermediate: a_j shared (= a_c), b_jg free per group ---------------
+    # Optimise b per group with a fixed at a_c.  Groups with fewer than 2
+    # observations fall back to b_c so all persons contribute to the LL.
+
+    ll_j_alpha <- 0
+    for (gi in seq_len(n_groups)) {
+      g_idx <- which(g_obs == gi)
+
+      if (length(g_idx) == 0L) next
+
+      if (length(g_idx) >= 2L) {
+        post_gi  <- post_obs[g_idx, , drop = FALSE]
+        x_gi     <- x_obs[g_idx]
+        nodes_gi <- nodes_obs[g_idx, , drop = FALSE]
+        nr_ab    <- nr_update_pooled(as.double(x_gi), post_gi, nodes_gi,
+                                     a_c, b_c, fix_a = TRUE, fix_b = FALSE)
+        b_ag <- .clamp(nr_ab[2], -6.0, 6.0)
+      } else {
+        b_ag <- b_c  # fallback for singleton group
+      }
+
+      post_gi_all  <- post_obs[g_idx, , drop = FALSE]
+      x_gi_all     <- x_obs[g_idx]
+      nodes_gi_all <- nodes_obs[g_idx, , drop = FALSE]
+
+      eta_a <- a_c * (nodes_gi_all - b_ag)
+      P_a   <- pmin(pmax(1 / (1 + exp(-eta_a)), 1e-10), 1 - 1e-10)
+      px_a  <- ifelse(matrix(x_gi_all, length(g_idx), n_nodes) == 1L,
+                      P_a, 1 - P_a)
+      ll_j_alpha <- ll_j_alpha +
+        sum(log(pmax(rowSums(post_gi_all * px_a), 1e-300)))
+    }
+    ll_alpha[j] <- ll_j_alpha
+
+    # --- Free: a_jg, b_jg per group ------------------------------------------
+
     ll_j_f <- 0
 
     for (gi in seq_len(n_groups)) {
       g_idx <- which(g_obs == gi)
 
       if (length(g_idx) < 2L) {
-        betas_g_mat[gi, j] <- b_c
+        betas_g_mat[gi, j]  <- b_c
+        alphas_g_mat[gi, j] <- a_c
         next
       }
 
@@ -318,7 +531,8 @@
       nr_f <- nr_update_pooled(as.double(x_gi), post_gi, nodes_gi, a0, b0)
       a_f  <- .clamp(nr_f[1], 0.1, 5.0)
       b_f  <- .clamp(nr_f[2], -6.0, 6.0)
-      betas_g_mat[gi, j] <- b_f
+      betas_g_mat[gi, j]  <- b_f
+      alphas_g_mat[gi, j] <- a_f
 
       eta_f <- a_f * (nodes_gi - b_f)
       P_f   <- pmin(pmax(1 / (1 + exp(-eta_f)), 1e-10), 1 - 1e-10)
@@ -329,7 +543,62 @@
     ll_f[j] <- ll_j_f
   }
 
-  list(constrained = ll_c, free = ll_f, group_betas = betas_g_mat)
+  list(
+    constrained  = ll_c,
+    alpha_fixed  = ll_alpha,
+    free         = ll_f,
+    group_betas  = betas_g_mat,
+    group_alphas = alphas_g_mat
+  )
+}
+
+
+# --- MAPPD for IRT models -------------------------------------------------------
+#
+# Maximum Absolute Predicted Probability Difference for the free IRT model.
+# a_mat: n_groups x n_items matrix of discrimination parameters
+# b_mat: n_groups x n_items matrix of difficulty parameters
+# Returns a numeric vector of length n_items.
+
+.mappd_irt <- function(a_mat, b_mat, group_levels, n_grid = 100) {
+  theta_grid <- seq(-3, 3, length.out = n_grid)
+  n_groups   <- nrow(a_mat)
+  n_items    <- ncol(a_mat)
+  mappd_vec  <- numeric(n_items)
+
+  for (j in seq_len(n_items)) {
+    # Skip items with any NA parameter estimate
+    if (anyNA(a_mat[, j]) || anyNA(b_mat[, j])) {
+      mappd_vec[j] <- NA_real_
+      next
+    }
+
+    # P(correct | theta) for each group: n_grid x n_groups
+    p_mat <- matrix(0, nrow = n_grid, ncol = n_groups)
+    for (gi in seq_len(n_groups)) {
+      p_mat[, gi] <- 1 / (1 + exp(-a_mat[gi, j] * (theta_grid - b_mat[gi, j])))
+    }
+
+    # Max absolute difference across all group pairs
+    max_diff <- 0
+    for (i in seq_len(n_groups)) {
+      for (k in seq_len(n_groups)) {
+        if (i >= k) next
+        max_diff <- max(max_diff, max(abs(p_mat[, i] - p_mat[, k])))
+      }
+    }
+    mappd_vec[j] <- max_diff
+  }
+
+  mappd_vec
+}
+
+# Scalar wrapper for vapply compatibility
+.mappd_classify_scalar <- function(x) {
+  if (is.na(x))    return(NA_character_)
+  if (x >= 0.10)   return("Large")
+  if (x >= 0.05)   return("Moderate")
+  "Negligible"
 }
 
 
@@ -338,7 +607,7 @@
 .lrt_log <- function(msg, verbose, detail = NULL, success = FALSE) {
   if (!verbose) return(invisible(NULL))
   timestamp <- format(Sys.time(), "[%H:%M:%S]")
-  symbol    <- if (success) "\u2713" else " "
+  symbol    <- if (success) "✓" else " "
   cat(sprintf("  %s %s %s", timestamp, symbol, msg))
   if (!is.null(detail)) cat(sprintf("  (%s)", detail))
   cat("\n")
@@ -370,17 +639,30 @@
 
 .lrt_na_row <- function(item_name) {
   data.frame(
-    item        = item_name,
-    method      = "LRT",
-    chi_sq      = NA_real_,
-    df          = NA_integer_,
-    p_overall   = NA_real_,
-    std_chi     = NA_real_,
-    es_class    = NA_character_,
-    dif_type    = NA_character_,
-    p_adj       = NA_real_,
-    flagged     = NA,
-    stringsAsFactors = FALSE
+    item                 = item_name,
+    method               = "LRT",
+    chi_sq               = NA_real_,
+    df                   = NA_integer_,
+    std_chi              = NA_real_,
+    es_class             = NA_character_,
+    chi_uniform          = NA_real_,
+    df_uniform           = NA_integer_,
+    p_uniform            = NA_real_,
+    p_uniform_adj        = NA_real_,
+    std_chi_uniform      = NA_real_,
+    es_class_uniform     = NA_character_,
+    chi_nonuniform       = NA_real_,
+    df_nonuniform        = NA_integer_,
+    p_nonuniform         = NA_real_,
+    p_nonuniform_adj     = NA_real_,
+    std_chi_nonuniform   = NA_real_,
+    mappd                = NA_real_,
+    mappd_class          = NA_character_,
+    dif_type             = NA_character_,
+    p_overall            = NA_real_,
+    p_adj                = NA_real_,
+    flagged              = NA,
+    stringsAsFactors     = FALSE
   )
 }
 
