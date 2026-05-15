@@ -111,3 +111,16 @@ test_that("merge_groups recodes levels correctly", {
   expect_true("18-30" %in% levels(merged$age))
   expect_false("18-24" %in% levels(merged$age))
 })
+
+test_that("MOB uniform direction labels align with residual sign", {
+  tbl <- iDIFr:::.mob_direction_table(
+    item_name  = "item_1",
+    scores_raw = c(0.2, 0.1, -0.1, -0.2),
+    var_data   = c("A", "A", "B", "B"),
+    depth      = 1,
+    dif_type   = "Uniform"
+  )
+
+  expect_equal(tbl$direction[tbl$group == "A"], "Advantaged")
+  expect_equal(tbl$direction[tbl$group == "B"], "Disadvantaged")
+})

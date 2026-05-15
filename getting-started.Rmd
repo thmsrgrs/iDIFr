@@ -173,20 +173,22 @@ result_merged <- idifr(merged_dat, 1:20,
 
 ## Intersectional Contrast Analysis (ICA)
 
-`ica()` goes one step further than a single `idifr()` call. It runs one
-analysis per demographic variable (single-variable) *and* one intersectional
-analysis, then classifies each item by comparing where it was flagged.
+Set `ica = TRUE` in `idifr()` to go one step further than a single intersectional
+analysis. It runs one analysis per demographic variable (single-variable) *and*
+one intersectional analysis, then classifies each item by comparing where it was
+flagged.
 
 ```{r ica-example, eval = FALSE}
-ica_res <- ica(
+ica_res <- idifr(
   data   = dat,
   items  = 1:20,
   group  = ~ group * nationality * age_band,
-  method = "LR"
+  method = "LR",
+  ica    = TRUE
 )
 
-print(ica_res)   # classification table
-tidy(ica_res)    # flat data frame
+print(ica_res)                 # includes the ICA classification section
+tidy(ica_res, table = "ica")   # flat ICA classification table
 ```
 
 Four item classifications are possible:
