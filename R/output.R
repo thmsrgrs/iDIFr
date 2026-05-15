@@ -147,6 +147,8 @@ print.idifr <- function(x, ...) {
       } else if (r$method == "MOB") {
         es_str  <- paste0("std-diff = ", r$std_diff, "  [", r$es_class, "]")
         dif_str <- paste0(
+          if (!is.na(r$dif_type) && r$dif_type != "None")
+            paste0("[", r$dif_type, "]  ") else "",
           "Source: ", if (!is.na(r$dif_source)) r$dif_source else "NA",
           if (!is.na(r$split_variable))
             paste0("  split: ", r$split_variable, " (depth=", r$split_depth, ")")
@@ -178,34 +180,68 @@ print.idifr <- function(x, ...) {
 
         if (dif_t == "MOB") {
 
-          # --- RF score-residual table -----------------------------------------
-          rf_res_row <- x$results[
+          # --- MOB score-residual table(s) -------------------------------------
+          # May have one sub-table (Uniform or Non-uniform) or two stacked
+          # (Uniform and Non-uniform), distinguished by the `metric` column.
+          mob_res_row <- x$results[
             x$results$method == "MOB" & as.character(x$results$item) == item_i, ]
-          split_v <- if (nrow(rf_res_row) == 1) rf_res_row$split_variable else NA
+          split_v <- if (nrow(mob_res_row) == 1) mob_res_row$split_variable else NA
 
-          header <- paste0(
-            "MOB group score residuals",
-            if (!is.na(split_v)) paste0(" (primary split: ", split_v, ")"),
-            ":"
-          )
-          cat("\n   ", header, "\n")
-          cat(sprintf(
-            "    %-30s  %-15s  %-15s  %s\n",
-            "Group", "Mean residual", "Deviation", "Direction"
-          ))
-          cat("    ", strrep("\u2500", 72), "\n", sep = "")
+          split_suffix <- if (!is.na(split_v))
+            paste0(" (primary split: ", split_v, ")") else ""
 
-          for (k in seq_len(nrow(item_dir))) {
-            d <- item_dir[k, ]
-            cat(sprintf(
-              "    %-30s  %-15s  %-15s  %s\n",
-              d$group,
-              if (!is.na(d$value))    sprintf("%.4f",  d$value)    else "NA",
-              if (!is.na(d$deviation)) sprintf("%+.4f", d$deviation) else "NA",
-              if (!is.na(d$direction)) d$direction else "NA"
-            ))
+          for (met in unique(item_dir$metric)) {
+            sub_dir <- item_dir[item_dir$metric == met, ]
+            is_nu   <- identical(met, "ability region residuals")
+
+            if (is_nu) {
+              # --- Non-uniform: low/high ability pattern table -----------------
+              cat("\n   MOB ability-region residuals", split_suffix, ":\n", sep = "")
+              cat(sprintf(
+                "    %-20s  %-14s  %-14s  %s\n",
+                "Group", "Low ability", "High ability", "Discrimination"
+              ))
+              cat("    ", strrep("\u2500", 72), "\n", sep = "")
+              for (k in seq_len(nrow(sub_dir))) {
+                d        <- sub_dir[k, ]
+                low_str  <- if (!is.na(d$value))    sprintf("%+.4f", d$value)    else "NA"
+                hi_str   <- if (!is.na(d$baseline)) sprintf("%+.4f", d$baseline) else "NA"
+                pat_str  <- if (!is.na(d$direction)) d$direction else "NA"
+                cat(sprintf(
+                  "    %-20s  %-14s  %-14s  %s\n",
+                  d$group, low_str, hi_str, pat_str
+                ))
+              }
+              cat(paste0(
+                "    Note: For non-uniform DIF items the item discriminates more",
+                " strongly between ability\n",
+                "    levels for one group than another. The group labelled",
+                " 'More discriminating' experiences\n",
+                "    a steeper relationship between ability and item performance.\n"
+              ))
+              cat("\n")
+
+            } else {
+              # --- Uniform: standard group residual table ----------------------
+              cat("\n   MOB group score residuals", split_suffix, ":\n", sep = "")
+              cat(sprintf(
+                "    %-20s  %-15s  %-15s  %s\n",
+                "Group", "Mean residual", "Deviation", "Direction"
+              ))
+              cat("    ", strrep("\u2500", 72), "\n", sep = "")
+              for (k in seq_len(nrow(sub_dir))) {
+                d <- sub_dir[k, ]
+                cat(sprintf(
+                  "    %-20s  %-15s  %-15s  %s\n",
+                  d$group,
+                  if (!is.na(d$value))     sprintf("%.4f",  d$value)     else "NA",
+                  if (!is.na(d$deviation)) sprintf("%+.4f", d$deviation) else "NA",
+                  if (!is.na(d$direction)) d$direction                   else "NA"
+                ))
+              }
+              cat("\n")
+            }
           }
-          cat("\n")
 
         } else {
 
