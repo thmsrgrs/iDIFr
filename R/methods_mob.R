@@ -521,7 +521,12 @@
       value     = round(means, 4),
       baseline  = round(overall_mean, 4),
       deviation = round(means - overall_mean, 4),
-      direction = ifelse(means < 0, "Advantaged", "Disadvantaged"),
+      direction = dplyr::case_when(
+        is.na(means) ~ NA_character_,
+        means > 0   ~ "Advantaged",
+        means < 0   ~ "Disadvantaged",
+        TRUE        ~ "No difference"
+      ),
       stringsAsFactors = FALSE
     )
   }
