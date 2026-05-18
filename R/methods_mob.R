@@ -15,8 +15,24 @@
 
   # Effect-size thresholds — defined once, used for BOTH es_class labels and
   # the flagging criterion so the two are always consistent.
-  ES_NEGLIGIBLE <- 0.20   # std_diff below this → Negligible (not flagged)
-  ES_MODERATE   <- 0.50   # std_diff below this → Moderate; above → Large
+  #
+  # std_diff = (max_group_mean - min_group_mean) / pooled_SD on score residuals
+  # (a Cohen's d generalised to K groups via the inter-group range).
+  #
+  # With K groups the expected null value of (max - min)/SD grows as
+  #   E[range of K std normals] / sqrt(n/K),
+  # so a 0.20 threshold appropriate for two groups is far too permissive when
+  # K >= 3 or when large group ability differences (impact) leave residual
+  # contamination after total-score conditioning.
+  #
+  # Calibration against the LR method: LR's ΔR² >= 0.035 gate corresponds
+  # to approximately std_diff >= 0.40 for K=3 groups (via η² → Cohen's f
+  # → range-based d conversion).  Setting ES_NEGLIGIBLE = 0.35 gives MOB
+  # slightly more sensitivity than LR while filtering the noise band that
+  # caused over-detection (items with std_diff 0.20–0.35 that are typically
+  # impact contamination rather than true item-level DIF).
+  ES_NEGLIGIBLE <- 0.35   # std_diff below this → Negligible (not flagged)
+  ES_MODERATE   <- 0.70   # std_diff below this → Moderate; above → Large
 
   vars      <- groups$vars
   n_vars    <- length(vars)
@@ -298,12 +314,16 @@
     # When an alternative score vector is supplied (e.g. abs residuals),
     # take the minimum p-value so both uniform and non-uniform DIF are
     # detectable regardless of item difficulty.
+    # Apply a 2× Bonferroni correction for running two CUSUM tests (raw and
+    # absolute residuals) per variable: min(p1, p2) is stochastically
+    # smaller than U[0,1] under H0, so without correction the effective
+    # alpha per variable is ~2× the nominal alpha.
     p_alt <- if (!is.null(scores_alt)) {
       sc_alt <- scores_alt[ov]
       .cusum_p(sc_alt, sc_alt)
     } else 1.0
 
-    p_vals[v] <- min(p_prim, p_alt)
+    p_vals[v] <- min(min(p_prim, p_alt) * 2, 1.0)
   }
 
   best_var <- vars[which.min(p_vals)]
