@@ -398,20 +398,35 @@ summary.idifr <- function(object, ...) {
       nrow(m_res), n_flagged, 100 * n_flagged / nrow(m_res)
     ))
 
-    # Effect size distribution
-    if (m == "LR" && "ets_class" %in% names(m_res)) {
-      tbl <- table(m_res$ets_class)
-      cat("  Effect size distribution (ETS):\n")
-      for (cls in names(tbl)) {
-        cat(sprintf("    %-20s  %d items\n", cls, tbl[cls]))
-      }
-    } else if ("es_class" %in% names(m_res)) {
-      tbl <- table(m_res$es_class)
-      cat("  Effect size distribution:\n")
-      for (cls in names(tbl)) {
-        cat(sprintf("    %-20s  %d items\n", cls, tbl[cls]))
-      }
+# Effect size distribution
+if (m == "LR" && "ets_class" %in% names(m_res)) {
+
+  uniform_rows <- m_res[!is.na(m_res$dif_type) &
+                          m_res$dif_type %in% c("Uniform", "Uniform and Non-uniform", "None"), ]
+  nu_rows      <- m_res[!is.na(m_res$dif_type) &
+                          m_res$dif_type == "Non-uniform", ]
+
+  tbl_u <- table(uniform_rows$ets_class)
+  cat("  Effect size distribution (ETS, delta-R2):\n")
+  for (cls in names(tbl_u)) {
+    cat(sprintf("    %-20s  %d items\n", cls, tbl_u[cls]))
+  }
+
+  if (nrow(nu_rows) > 0) {
+    tbl_nu <- table(nu_rows$nu_es_class)
+    cat(sprintf("\n  Non-uniform effect size (%s):\n", nu_rows$nu_es_label[1]))
+    for (cls in names(tbl_nu)) {
+      cat(sprintf("    %-20s  %d items\n", cls, tbl_nu[cls]))
     }
+  }
+
+} else if ("es_class" %in% names(m_res)) {
+  tbl <- table(m_res$es_class)
+  cat("  Effect size distribution:\n")
+  for (cls in names(tbl)) {
+    cat(sprintf("    %-20s  %d items\n", cls, tbl[cls]))
+  }
+}
     cat("\n")
   }
 
