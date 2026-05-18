@@ -31,10 +31,18 @@
 
 .run_lrt <- function(data, item_cols, groups, anchor, alpha, p_adjust, verbose,
                      nonuniform_es = "MAPPD",
-                     purify = TRUE, max_purify = 5) {
+                     purify = TRUE, max_purify = 5,
+                     cores = NULL) {
 
   # Resolve nonuniform_es: "delta_r2" is LR-only, fall back to "chi_sq" for LRT
   nonuniform_es <- if (nonuniform_es == "delta_r2") "chi_sq" else nonuniform_es
+
+  # Resolve core count for parallelisation
+  n_cores <- max(1L, if (is.null(cores))
+    parallel::detectCores(logical = FALSE) - 1L
+  else
+    as.integer(cores)
+  )
 
   n_items      <- length(item_cols)
   resp_matrix  <- as.matrix(data[item_cols])
@@ -112,7 +120,8 @@
       model        = baseline,
       resp         = resp_matrix,
       group_levels = group_levels,
-      n_groups     = n_groups
+      n_groups     = n_groups,
+      cores        = n_cores
     )
 
     # Omnibus stats for purification criterion
@@ -447,7 +456,7 @@
 #   group_betas  -- free-model per-group b estimates (n_groups x n_items)
 #   group_alphas -- free-model per-group a estimates (n_groups x n_items)
 
-.lrt_item_lls <- function(model, resp, group_levels, n_groups) {
+.lrt_item_lls <- function(model, resp, group_levels, n_groups, cores = 1L) {
 
   n_items   <- ncol(resp)
   n_nodes   <- length(model$nodes)
@@ -464,19 +473,18 @@
   obs_mat <- !is.na(resp)
   resp_s  <- resp; resp_s[!obs_mat] <- 0L
 
-  ll_c        <- numeric(n_items)
-  ll_alpha    <- numeric(n_items)
-  ll_f        <- numeric(n_items)
-  betas_g_mat  <- matrix(NA_real_, nrow = n_groups, ncol = n_items)
-  alphas_g_mat <- matrix(NA_real_, nrow = n_groups, ncol = n_items)
-
-  for (j in seq_len(n_items)) {
+  # Worker function: compute three LLs and group params for item j
+  .item_worker <- function(j) {
 
     x_j     <- resp_s[, j]
     obs_j   <- obs_mat[, j]
     obs_idx <- which(obs_j)
 
-    if (length(obs_idx) < 5L) next
+    empty <- list(ll_c_j = 0, ll_alpha_j = 0, ll_f_j = 0,
+                  beta_g_j  = rep(NA_real_, n_groups),
+                  alpha_g_j = rep(NA_real_, n_groups))
+
+    if (length(obs_idx) < 5L) return(empty)
 
     post_obs  <- post[obs_idx, , drop = FALSE]
     x_obs     <- x_j[obs_idx]
@@ -496,16 +504,12 @@
     eta_c   <- a_c * (nodes_obs - b_c)
     P_c     <- pmin(pmax(1 / (1 + exp(-eta_c)), 1e-10), 1 - 1e-10)
     px_c    <- ifelse(matrix(x_obs, length(obs_idx), n_nodes) == 1L, P_c, 1 - P_c)
-    ll_c[j] <- sum(log(pmax(rowSums(post_obs * px_c), 1e-300)))
+    ll_c_j  <- sum(log(pmax(rowSums(post_obs * px_c), 1e-300)))
 
     # --- Intermediate: a_j shared (= a_c), b_jg free per group ---------------
-    # Optimise b per group with a fixed at a_c.  Groups with fewer than 2
-    # observations fall back to b_c so all persons contribute to the LL.
-
     ll_j_alpha <- 0
     for (gi in seq_len(n_groups)) {
       g_idx <- which(g_obs == gi)
-
       if (length(g_idx) == 0L) next
 
       if (length(g_idx) >= 2L) {
@@ -516,7 +520,7 @@
                                      a_c, b_c, fix_a = TRUE, fix_b = FALSE)
         b_ag <- .clamp(nr_ab[2], -6.0, 6.0)
       } else {
-        b_ag <- b_c  # fallback for singleton group
+        b_ag <- b_c
       }
 
       post_gi_all  <- post_obs[g_idx, , drop = FALSE]
@@ -530,18 +534,18 @@
       ll_j_alpha <- ll_j_alpha +
         sum(log(pmax(rowSums(post_gi_all * px_a), 1e-300)))
     }
-    ll_alpha[j] <- ll_j_alpha
 
     # --- Free: a_jg, b_jg per group ------------------------------------------
-
-    ll_j_f <- 0
+    ll_j_f    <- 0
+    beta_g_j  <- rep(NA_real_, n_groups)
+    alpha_g_j <- rep(NA_real_, n_groups)
 
     for (gi in seq_len(n_groups)) {
       g_idx <- which(g_obs == gi)
 
       if (length(g_idx) < 2L) {
-        betas_g_mat[gi, j]  <- b_c
-        alphas_g_mat[gi, j] <- a_c
+        beta_g_j[gi]  <- b_c
+        alpha_g_j[gi] <- a_c
         next
       }
 
@@ -552,8 +556,8 @@
       nr_f <- nr_update_pooled(as.double(x_gi), post_gi, nodes_gi, a0, b0)
       a_f  <- .clamp(nr_f[1], 0.1, 5.0)
       b_f  <- .clamp(nr_f[2], -6.0, 6.0)
-      betas_g_mat[gi, j]  <- b_f
-      alphas_g_mat[gi, j] <- a_f
+      beta_g_j[gi]  <- b_f
+      alpha_g_j[gi] <- a_f
 
       eta_f <- a_f * (nodes_gi - b_f)
       P_f   <- pmin(pmax(1 / (1 + exp(-eta_f)), 1e-10), 1 - 1e-10)
@@ -561,7 +565,78 @@
       ll_j_f <- ll_j_f + sum(log(pmax(rowSums(post_gi * px_f), 1e-300)))
     }
 
-    ll_f[j] <- ll_j_f
+    list(ll_c_j    = ll_c_j,
+         ll_alpha_j = ll_j_alpha,
+         ll_f_j     = ll_j_f,
+         beta_g_j   = beta_g_j,
+         alpha_g_j  = alpha_g_j)
+  }
+
+  # ---------------------------------------------------------------------------
+  # Dispatch: serial (cores == 1) or parallel
+  # ---------------------------------------------------------------------------
+
+  item_seq <- seq_len(n_items)
+
+  if (cores <= 1L) {
+
+    results <- lapply(item_seq, .item_worker)
+
+  } else if (.Platform$OS.type == "windows") {
+
+    cl <- parallel::makeCluster(cores)
+    on.exit(parallel::stopCluster(cl), add = TRUE)
+
+    # Load the package (dev version) on each worker
+    pkg_path <- system.file(package = "iDIFr")
+    if (nchar(pkg_path) == 0L) {
+      # Under devtools::load_all() the package is not installed — load from source
+      src_path <- tryCatch(
+        find.package("iDIFr"),
+        error = function(e) NULL
+      )
+      if (is.null(src_path)) {
+        # Fall back to the working directory heuristic
+        src_path <- getwd()
+      }
+      parallel::clusterCall(cl, function(p) devtools::load_all(p), src_path)
+    } else {
+      parallel::clusterEvalQ(cl, library(iDIFr))
+    }
+
+    # Export the environment objects the worker closure captures
+    parallel::clusterExport(
+      cl,
+      varlist = c("resp_s", "obs_mat", "post", "nodes_i", "g_int",
+                  "n_groups", "n_nodes"),
+      envir   = environment()
+    )
+
+    results <- parallel::parLapply(cl, item_seq, .item_worker)
+
+  } else {
+
+    results <- parallel::mclapply(item_seq, .item_worker, mc.cores = cores)
+
+  }
+
+  # ---------------------------------------------------------------------------
+  # Unpack results list into arrays
+  # ---------------------------------------------------------------------------
+
+  ll_c         <- numeric(n_items)
+  ll_alpha     <- numeric(n_items)
+  ll_f         <- numeric(n_items)
+  betas_g_mat  <- matrix(NA_real_, nrow = n_groups, ncol = n_items)
+  alphas_g_mat <- matrix(NA_real_, nrow = n_groups, ncol = n_items)
+
+  for (j in item_seq) {
+    r               <- results[[j]]
+    ll_c[j]         <- r$ll_c_j
+    ll_alpha[j]     <- r$ll_alpha_j
+    ll_f[j]         <- r$ll_f_j
+    betas_g_mat[, j]  <- r$beta_g_j
+    alphas_g_mat[, j] <- r$alpha_g_j
   }
 
   list(
