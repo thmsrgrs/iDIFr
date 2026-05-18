@@ -12,6 +12,7 @@ Depends:
     R (>= 4.1.0)
 Imports:
     Rcpp (>= 1.0.0),
+    parallel,
     stats,
     cli,
     dplyr,
