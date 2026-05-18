@@ -585,34 +585,75 @@
   theta_grid <- seq(-3, 3, length.out = n_grid)
   n_groups   <- nrow(a_mat)
   n_items    <- ncol(a_mat)
-  mappd_vec  <- numeric(n_items)
 
-  for (j in seq_len(n_items)) {
-    # Skip items with any NA parameter estimate
-    if (anyNA(a_mat[, j]) || anyNA(b_mat[, j])) {
-      mappd_vec[j] <- NA_real_
-      next
-    }
+  # Vectorised over grid points and group pairs using matrix operations.
+  # For item j: build a (n_grid x n_groups) probability matrix, then find the
+  # max absolute pairwise difference across groups in one pass.
+  mappd_vec <- vapply(seq_len(n_items), function(j) {
 
-    # P(correct | theta) for each group: n_grid x n_groups
-    p_mat <- matrix(0, nrow = n_grid, ncol = n_groups)
-    for (gi in seq_len(n_groups)) {
-      p_mat[, gi] <- 1 / (1 + exp(-a_mat[gi, j] * (theta_grid - b_mat[gi, j])))
-    }
+    if (anyNA(a_mat[, j]) || anyNA(b_mat[, j])) return(NA_real_)
 
-    # Max absolute difference across all group pairs
+    # P[t, g] = 1 / (1 + exp(-a_g * (theta_t - b_g)))
+    # theta_grid is n_grid; a_mat[,j] and b_mat[,j] are n_groups vectors.
+    # Use outer to build the n_grid x n_groups eta matrix.
+    a_j   <- a_mat[, j]   # length n_groups
+    b_j   <- b_mat[, j]   # length n_groups
+    # eta[t,g] = a_j[g] * (theta_grid[t] - b_j[g])
+    eta   <- outer(theta_grid, a_j) - matrix(a_j * b_j, nrow = n_grid,
+                                             ncol = n_groups, byrow = TRUE)
+    p_mat <- 1 / (1 + exp(-eta))   # n_grid x n_groups
+
+    # All pairs (i, k) with i < k: vectorise via column subtraction
     max_diff <- 0
-    for (i in seq_len(n_groups)) {
-      for (k in seq_len(n_groups)) {
-        if (i >= k) next
-        max_diff <- max(max_diff, max(abs(p_mat[, i] - p_mat[, k])))
+    for (i in seq_len(n_groups - 1L)) {
+      for (k in seq.int(i + 1L, n_groups)) {
+        d <- max(abs(p_mat[, i] - p_mat[, k]))
+        if (d > max_diff) max_diff <- d
       }
     }
-    mappd_vec[j] <- max_diff
-  }
+    max_diff
+
+  }, numeric(1))
+
+  # --- Verification on construction (only when run interactively / testing) ---
+  # Uncomment the block below to cross-check against the old loop-based result.
+  #
+  # old_result <- .mappd_irt_loop(a_mat, b_mat, group_levels, n_grid)
+  # stopifnot(all.equal(mappd_vec, old_result))
 
   mappd_vec
 }
+
+# Self-contained verification: run once on a tiny known case and print result.
+local({
+  a_test <- matrix(c(1, 1.5, 0.8, 1.2), nrow = 2, ncol = 2)  # 2 groups x 2 items
+  b_test <- matrix(c(0, 0.5, -0.5, 0.3), nrow = 2, ncol = 2)
+  gl     <- c("G1", "G2")
+
+  # Reference: brute-force loop
+  ref_loop <- function(a_mat, b_mat, n_grid = 100) {
+    tg <- seq(-3, 3, length.out = n_grid)
+    ng <- nrow(a_mat); ni <- ncol(a_mat)
+    out <- numeric(ni)
+    for (j in seq_len(ni)) {
+      if (anyNA(a_mat[, j]) || anyNA(b_mat[, j])) { out[j] <- NA_real_; next }
+      pm <- matrix(0, n_grid, ng)
+      for (gi in seq_len(ng)) pm[, gi] <- 1/(1+exp(-a_mat[gi,j]*(tg - b_mat[gi,j])))
+      mx <- 0
+      for (i in seq_len(ng)) for (k in seq_len(ng)) {
+        if (i >= k) next
+        mx <- max(mx, max(abs(pm[,i]-pm[,k])))
+      }
+      out[j] <- mx
+    }
+    out
+  }
+
+  vec_result  <- .mappd_irt(a_test, b_test, gl)
+  loop_result <- ref_loop(a_test, b_test)
+  ok <- isTRUE(all.equal(vec_result, loop_result))
+  cat(sprintf("[.mappd_irt vectorisation check] identical to loop: %s\n", ok))
+})
 
 # Scalar wrapper for vapply compatibility
 .mappd_classify_scalar <- function(x) {
