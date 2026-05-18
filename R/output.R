@@ -389,7 +389,7 @@ summary.idifr <- function(object, ...) {
 
   # Per-method summary
   for (m in object$method) {
-    m_res <- res[res$method == m, ]
+    m_res     <- res[res$method == m, ]
     n_flagged <- sum(!is.na(m_res$flagged) & m_res$flagged)
 
     cli::cli_h2(m)
@@ -398,41 +398,90 @@ summary.idifr <- function(object, ...) {
       nrow(m_res), n_flagged, 100 * n_flagged / nrow(m_res)
     ))
 
-# Effect size distribution
-if (m == "LR" && "ets_class" %in% names(m_res)) {
-
-  flagged_res  <- m_res[!is.na(m_res$flagged) & m_res$flagged, ]
-  uniform_rows <- flagged_res[!is.na(flagged_res$dif_type) &
-                                flagged_res$dif_type %in%
-                                  c("Uniform", "Uniform and Non-uniform"), ]
-  nu_rows      <- flagged_res[!is.na(flagged_res$dif_type) &
-                                flagged_res$dif_type %in%
-                                  c("Non-uniform", "Uniform and Non-uniform"), ]
-
-  if (nrow(uniform_rows) > 0) {
-    tbl_u <- table(uniform_rows$ets_class)
-    cat("  Effect size distribution for flagged items (ETS, delta-R2):\n")
-    for (cls in names(tbl_u)) {
-      cat(sprintf("    %-20s  %d items\n", cls, tbl_u[cls]))
+    # DIF type breakdown (flagged items only)
+    if ("dif_type" %in% names(m_res) && n_flagged > 0) {
+      flagged_type <- m_res[!is.na(m_res$flagged) & m_res$flagged, ]
+      valid_types  <- flagged_type$dif_type[!is.na(flagged_type$dif_type)]
+      if (length(valid_types) > 0) {
+        type_tbl   <- table(valid_types)
+        type_order <- c("Uniform", "Non-uniform", "Uniform and Non-uniform")
+        cat("  DIF type breakdown:\n")
+        for (tp in type_order) {
+          if (tp %in% names(type_tbl)) {
+            cat(sprintf("    %-25s  %d items\n", tp, type_tbl[[tp]]))
+          }
+        }
+        cat("\n")
+      }
     }
-  }
 
-  if (nrow(nu_rows) > 0) {
-    tbl_nu <- table(nu_rows$nu_es_class)
-    cat(sprintf("\n  Non-uniform effect size for flagged items (%s):\n",
-                nu_rows$nu_es_label[1]))
-    for (cls in names(tbl_nu)) {
-      cat(sprintf("    %-20s  %d items\n", cls, tbl_nu[cls]))
+    # Effect size distribution (flagged items only)
+    if (m == "LR" && "ets_class" %in% names(m_res)) {
+
+      flagged_res  <- m_res[!is.na(m_res$flagged) & m_res$flagged, ]
+      uniform_rows <- flagged_res[!is.na(flagged_res$dif_type) &
+                                    flagged_res$dif_type %in%
+                                      c("Uniform", "Uniform and Non-uniform"), ]
+      nu_rows      <- flagged_res[!is.na(flagged_res$dif_type) &
+                                    flagged_res$dif_type %in%
+                                      c("Non-uniform", "Uniform and Non-uniform"), ]
+
+      if (nrow(uniform_rows) > 0) {
+        tbl_u <- table(uniform_rows$ets_class)
+        cat("  Effect size distribution for flagged items (ETS, delta-R2):\n")
+        for (cls in names(tbl_u)) {
+          cat(sprintf("    %-20s  %d items\n", cls, tbl_u[cls]))
+        }
+      }
+
+      if (nrow(nu_rows) > 0) {
+        tbl_nu <- table(nu_rows$nu_es_class)
+        cat(sprintf("\n  Non-uniform effect size for flagged items (%s):\n",
+                    nu_rows$nu_es_label[1]))
+        for (cls in names(tbl_nu)) {
+          cat(sprintf("    %-20s  %d items\n", cls, tbl_nu[cls]))
+        }
+      }
+
+    } else if (m == "LRT" && "es_class_uniform" %in% names(m_res)) {
+
+      flagged_res  <- m_res[!is.na(m_res$flagged) & m_res$flagged, ]
+      uniform_rows <- flagged_res[!is.na(flagged_res$dif_type) &
+                                    flagged_res$dif_type %in%
+                                      c("Uniform", "Uniform and Non-uniform"), ]
+      nu_rows      <- flagged_res[!is.na(flagged_res$dif_type) &
+                                    flagged_res$dif_type %in%
+                                      c("Non-uniform", "Uniform and Non-uniform"), ]
+
+      if (nrow(uniform_rows) > 0) {
+        tbl_u <- table(uniform_rows$es_class_uniform)
+        cat("  Effect size distribution for flagged items (uniform, std-chi):\n")
+        for (cls in names(tbl_u)) {
+          cat(sprintf("    %-20s  %d items\n", cls, tbl_u[cls]))
+        }
+      }
+
+      if (nrow(nu_rows) > 0) {
+        tbl_nu <- table(nu_rows$mappd_class)
+        cat("\n  Non-uniform effect size for flagged items (MAPPD):\n")
+        for (cls in names(tbl_nu)) {
+          cat(sprintf("    %-20s  %d items\n", cls, tbl_nu[cls]))
+        }
+      }
+
+    } else if ("es_class" %in% names(m_res)) {
+
+      flagged_res <- m_res[!is.na(m_res$flagged) & m_res$flagged, ]
+      if (nrow(flagged_res) > 0) {
+        tbl <- table(flagged_res$es_class)
+        cat("  Effect size distribution (flagged items only):\n")
+        for (cls in names(tbl)) {
+          cat(sprintf("    %-20s  %d items\n", cls, tbl[cls]))
+        }
+      }
+
     }
-  }
 
-} else if ("es_class" %in% names(m_res)) {
-  tbl <- table(m_res$es_class)
-  cat("  Effect size distribution:\n")
-  for (cls in names(tbl)) {
-    cat(sprintf("    %-20s  %d items\n", cls, tbl[cls]))
-  }
-}
     cat("\n")
   }
 
