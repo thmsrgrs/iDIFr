@@ -638,11 +638,32 @@ idifr <- function(data,
       marginal <- length(flagged_by_vars) > 0
       ix_dif   <- it %in% inter_flagged
 
+      # For MOB: a depth=1 split is a main effect (a single demographic
+      # variable splitting the intersectional sample), not genuine
+      # intersectional structure.  Only classify as "amplified" or
+      # "pure_intersection" when the intersectional tree reached depth >= 2
+      # (at least two variables split in sequence) OR used >= 2 distinct
+      # split variables — i.e. is_intersectional_structure is TRUE.
+      # When the intersectional run only found a depth=1 split, treat the
+      # item as if it was NOT detected in the intersectional run for ICA
+      # classification purposes; it will fall through to "obscured" (if
+      # marginal) or "none".
+      effective_ix_dif <- ix_dif
+      if (m == "MOB" && ix_dif) {
+        it_row <- main_td[main_td$method == m &
+                            as.character(main_td$item) == it, ]
+        if (nrow(it_row) > 0 && "split_depth" %in% names(it_row)) {
+          sd_val <- it_row$split_depth[1]
+          is_intersectional_structure <- !is.na(sd_val) && sd_val >= 2L
+          if (!is_intersectional_structure) effective_ix_dif <- FALSE
+        }
+      }
+
       ica_class <- dplyr::case_when(
-        marginal  &  ix_dif ~ "amplified",
-        !marginal &  ix_dif ~ "pure_intersection",
-        marginal  & !ix_dif ~ "obscured",
-        TRUE                 ~ "none"
+        marginal  &  effective_ix_dif ~ "amplified",
+        !marginal &  effective_ix_dif ~ "pure_intersection",
+        marginal  & !effective_ix_dif ~ "obscured",
+        TRUE                          ~ "none"
       )
 
       data.frame(
@@ -651,7 +672,7 @@ idifr <- function(data,
         ica_class           = ica_class,
         marginal_vars       = if (marginal) paste(flagged_by_vars, collapse = ", ")
                               else NA_character_,
-        intersectional_flag = ix_dif,
+        intersectional_flag = effective_ix_dif,
         stringsAsFactors    = FALSE
       )
     })
