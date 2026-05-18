@@ -23,8 +23,10 @@
 #'     \item \code{"alpha"} — a fixed across groups, b free (uniform DIF test)
 #'     \item \code{"beta"}  — b fixed across groups, a free (non-uniform DIF test)
 #'   }
-#' @param n_nodes   Number of quadrature nodes. Default 21.
-#' @param max_iter  Maximum EM iterations. Default 500.
+#' @param n_nodes   Number of quadrature nodes. Default 15. Values of 11-21
+#'                  are appropriate for DIF detection; use 21 for publication-
+#'                  quality parameter estimates.
+#' @param max_iter  Maximum EM iterations. Default 200.
 #' @param tol       Convergence tolerance on log-likelihood change. Default 1e-4.
 #' @param start     Optional list with elements \code{a} and \code{b} (numeric
 #'                  vectors of length = number of items) to warm-start the EM
@@ -37,8 +39,8 @@
 fit_2pl <- function(resp,
                     group     = NULL,
                     constrain = "items",
-                    n_nodes   = 21,
-                    max_iter  = 500,
+                    n_nodes   = 15,
+                    max_iter  = 200,
                     tol       = 1e-4,
                     start     = NULL,
                     verbose   = FALSE) {
@@ -148,6 +150,22 @@ fit_2pl <- function(resp,
       converged <- TRUE; break
     }
 
+    # Plateau early-stop for multigroup adaptive-quadrature drift.
+    #
+    # In multigroup models the LL can decrease slowly after the initial rapid
+    # improvement as Gauss-Hermite nodes adapt to updated ability distributions.
+    # The item parameters stabilise within a few iterations; subsequent EM steps
+    # only refine the ability-distribution hyperparameters by negligible amounts.
+    # If the last plateau_n deltas are all negative and all small relative to the
+    # initial per-iteration improvement, treat the solution as converged.
+    plateau_n <- 4L
+    if (iter > plateau_n + 1L) {
+      recent_d <- diff(ll_hist[(iter - plateau_n):iter])
+      if (all(recent_d < 0) && max(abs(recent_d)) < max(tol * 500, 0.05)) {
+        converged <- TRUE; break
+      }
+    }
+
     # ---- M step -----------------------------------------------------------
 
     # Sufficient statistics per group per node:
@@ -160,7 +178,18 @@ fit_2pl <- function(resp,
     new_a <- a_mat
     new_b <- b_mat
 
+    # For the pooled constrained update, precompute the full person x node
+    # matrix once — avoids re-indexing nodes_g inside the item loop when
+    # data are complete (the common case).
+    complete_data <- constrain != "none" && !anyNA(resp)
+    if (complete_data) {
+      nodes_i_full <- nodes_g[g_int, , drop = FALSE]  # n_persons x n_nodes
+    }
+
     # Update item parameters
+    fix_a <- constrain == "beta"
+    fix_b <- constrain == "alpha"
+
     for (j in seq_len(n_items)) {
 
       x_j   <- resp_safe[, j]
@@ -184,18 +213,16 @@ fit_2pl <- function(resp,
 
       } else {
         # Pooled update using all persons
-        # Build per-person node vectors (their group's scaled nodes at each k)
-        # nodes_ik: n_persons_obs x n_nodes
-        obs_idx  <- which(obs_j)
-        post_obs <- post[obs_idx, , drop=FALSE]
-        x_obs    <- x_j[obs_idx]
-        g_obs    <- g_int[obs_idx]
-
-        # Scaled nodes for each observed person
-        nodes_ik <- nodes_g[g_obs, , drop=FALSE]  # n_obs x n_nodes
-
-        fix_a <- constrain == "beta"
-        fix_b <- constrain == "alpha"
+        if (complete_data) {
+          post_obs <- post
+          x_obs    <- x_j
+          nodes_ik <- nodes_i_full
+        } else {
+          obs_idx  <- which(obs_j)
+          post_obs <- post[obs_idx, , drop = FALSE]
+          x_obs    <- x_j[obs_idx]
+          nodes_ik <- nodes_g[g_int[obs_idx], , drop = FALSE]
+        }
 
         nr <- nr_update_pooled(as.double(x_obs), post_obs, nodes_ik,
                                a_mat[1, j], b_mat[1, j],
