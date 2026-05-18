@@ -597,47 +597,13 @@
 
   item_seq <- seq_len(n_items)
 
-  if (cores <= 1L) {
-
-    results <- lapply(item_seq, .item_worker)
-
-  } else if (.Platform$OS.type == "windows") {
-
-    cl <- parallel::makeCluster(cores)
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-
-    # Load the package (dev version) on each worker
-    pkg_path <- system.file(package = "iDIFr")
-    if (nchar(pkg_path) == 0L) {
-      # Under devtools::load_all() the package is not installed — load from source
-      src_path <- tryCatch(
-        find.package("iDIFr"),
-        error = function(e) NULL
-      )
-      if (is.null(src_path)) {
-        # Fall back to the working directory heuristic
-        src_path <- getwd()
-      }
-      parallel::clusterCall(cl, function(p) devtools::load_all(p), src_path)
-    } else {
-      parallel::clusterEvalQ(cl, library(iDIFr))
-    }
-
-    # Export the environment objects the worker closure captures
-    parallel::clusterExport(
-      cl,
-      varlist = c("resp_s", "obs_mat", "post", "nodes_i", "g_int",
-                  "n_groups", "n_nodes"),
-      envir   = environment()
-    )
-
-    results <- parallel::parLapply(cl, item_seq, .item_worker)
-
-  } else {
-
-    results <- parallel::mclapply(item_seq, .item_worker, mc.cores = cores)
-
-  }
+  # Platform-safe dispatch:
+  # - Unix/Mac: mclapply with fork-based workers (inherits parent environment)
+  # - Windows:  mclapply with mc.cores = 1 (serial; forking unsupported on Windows)
+  #   PSOCK clusters are avoided because headless Rscript sessions cannot
+  #   reliably load the package on workers (fails under devtools::load_all()).
+  n_mc <- if (.Platform$OS.type == "windows") 1L else as.integer(cores)
+  results <- parallel::mclapply(item_seq, .item_worker, mc.cores = n_mc)
 
   # ---------------------------------------------------------------------------
   # Unpack results list into arrays
