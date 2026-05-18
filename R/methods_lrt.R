@@ -76,6 +76,7 @@
   # ---------------------------------------------------------------------------
 
   flagged_prev <- character(0)
+  warm_start   <- NULL  # warm-start params for purification passes
 
   # Storage for final-pass results (updated each pass)
   lls          <- NULL
@@ -93,11 +94,21 @@
 
     t0 <- proc.time()
 
+    # Build start list aligned to the current anchor item set
+    pass_start <- if (!is.null(warm_start) && pass > 1L) {
+      keep <- anchor_cols %in% names(warm_start$a)
+      if (all(keep)) {
+        list(a = warm_start$a[anchor_cols],
+             b = warm_start$b[anchor_cols])
+      } else NULL
+    } else NULL
+
     baseline <- tryCatch(
       fit_2pl(
         resp      = resp_matrix[, anchor_cols, drop = FALSE],
         group     = group_vector,
         constrain = "items",
+        start     = pass_start,
         verbose   = FALSE
       ),
       error = function(e) {
@@ -113,6 +124,14 @@
       sprintf("Constrained model converged (%.1fs)  LL = %.3f",
               elapsed, baseline$loglik),
       verbose, success = TRUE
+    )
+
+    # Capture item parameters for warm-starting the next purification pass.
+    # baseline$item_params has columns item, a, b (shared across groups for
+    # constrained model).
+    warm_start <- list(
+      a = stats::setNames(baseline$item_params$a, baseline$item_params$item),
+      b = stats::setNames(baseline$item_params$b, baseline$item_params$item)
     )
 
     # Per-item LLs for ALL items using anchor-based posteriors

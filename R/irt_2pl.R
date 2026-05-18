@@ -26,6 +26,10 @@
 #' @param n_nodes   Number of quadrature nodes. Default 21.
 #' @param max_iter  Maximum EM iterations. Default 500.
 #' @param tol       Convergence tolerance on log-likelihood change. Default 1e-4.
+#' @param start     Optional list with elements \code{a} and \code{b} (numeric
+#'                  vectors of length = number of items) to warm-start the EM
+#'                  loop. If \code{NULL} (default), the usual data-driven
+#'                  starting values are used.
 #' @param verbose   Print iteration log. Default FALSE.
 #'
 #' @return Object of class \code{irt_2pl}.
@@ -36,6 +40,7 @@ fit_2pl <- function(resp,
                     n_nodes   = 21,
                     max_iter  = 500,
                     tol       = 1e-4,
+                    start     = NULL,
                     verbose   = FALSE) {
 
   resp <- as.matrix(resp)
@@ -85,6 +90,18 @@ fit_2pl <- function(resp,
                   dimnames=list(group_levels, item_names))
   b_mat <- matrix(qlogis(1-pc), nrow=n_groups, ncol=n_items,
                   byrow=TRUE,   dimnames=list(group_levels, item_names))
+
+  # Warm-start: override default a/b if start values are supplied
+  if (!is.null(start) && is.list(start) &&
+      !is.null(start$a) && !is.null(start$b) &&
+      length(start$a) == n_items && length(start$b) == n_items) {
+    a_start <- .clamp(as.double(start$a), 0.1, 5.0)
+    b_start <- .clamp(as.double(start$b), -6.0, 6.0)
+    for (gi in seq_len(n_groups)) {
+      a_mat[gi, ] <- a_start
+      b_mat[gi, ] <- b_start
+    }
+  }
 
   # Group ability: mu (free for g>1), sigma2 (free for all)
   # Reference group: mu=0, sigma2=1 (identification)
