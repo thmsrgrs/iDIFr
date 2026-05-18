@@ -152,6 +152,8 @@ idifr <- function(data,
 
   nonuniform_es <- match.arg(nonuniform_es, c("MAPPD", "delta_r2", "chi_sq"))
 
+  method <- toupper(method)
+  
   .validate_inputs(data, items, group, method, alpha, p_adjust,
                    exclude_below_min, fully_crossed, value_selection)
 
