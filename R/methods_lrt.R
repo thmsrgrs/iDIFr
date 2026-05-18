@@ -31,7 +31,7 @@
 
 .run_lrt <- function(data, item_cols, groups, anchor, alpha, p_adjust, verbose,
                      nonuniform_es = "MAPPD",
-                     purify = TRUE, max_purify = 5,
+                     purify = TRUE, max_purify = 2,
                      cores = NULL) {
 
   # Resolve nonuniform_es: "delta_r2" is LR-only, fall back to "chi_sq" for LRT
