@@ -228,8 +228,9 @@
 
   # --- P-value adjustment and flagging ---------------------------------------
 
-  result_df       <- do.call(rbind, results)
-  result_df$p_adj <- stats::p.adjust(result_df$p_overall, method = p_adjust)
+  result_df            <- do.call(rbind, results)
+  result_df$p_adj      <- stats::p.adjust(result_df$p_overall,     method = p_adjust)
+  result_df$p_adj_interaction <- stats::p.adjust(result_df$p_interaction, method = p_adjust)
 
   # Three-part flagging:
   #
@@ -238,10 +239,11 @@
   # (b) Uniform-and-Non-uniform — BH-adjusted p + delta_r2_omnibus >= 0.035.
   #     Components are individually smaller; omnibus avoids under-flagging.
   #
-  # (c) Non-uniform supplement — bypasses BH because the M2→M3 Nagelkerke
-  #     increment and related metrics are inherently small for crossing ICC DIF
-  #     even with strong effects. Compensates with a stricter omnibus gate
-  #     (p_nonuniform < alpha/2). Threshold is metric-specific.
+  # (c) Non-uniform supplement — bypasses the omnibus BH path because the
+  #     M2→M3 Nagelkerke increment is inherently small for crossing ICC DIF.
+  #     Uses BH-adjusted interaction p-value (p_adj_interaction < alpha) so
+  #     the multiple-testing correction is still applied, combined with a
+  #     metric-specific non-uniform effect-size threshold.
 
   nu_threshold <- switch(nonuniform_es, MAPPD = 0.05, delta_r2 = 0.035, chi_sq = 3.84)
 
@@ -254,10 +256,8 @@
        result_df$dif_type == "Uniform and Non-uniform")
   )
 
-  nu_supplement <- !is.na(result_df$p_nonuniform) &
-    result_df$p_nonuniform < alpha / 2 &
-    !is.na(result_df$p_interaction) &
-    result_df$p_interaction < alpha &
+  nu_supplement <- !is.na(result_df$p_adj_interaction) &
+    result_df$p_adj_interaction < alpha &
     !is.na(result_df$nu_es) &
     result_df$nu_es >= nu_threshold
 
@@ -509,6 +509,7 @@
     ets_class            = NA_character_,
     dif_type             = NA_character_,
     p_adj                = NA_real_,
+    p_adj_interaction    = NA_real_,
     flagged              = NA,
     stringsAsFactors     = FALSE
   )
