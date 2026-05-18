@@ -401,12 +401,13 @@ summary.idifr <- function(object, ...) {
 # Effect size distribution
 if (m == "LR" && "ets_class" %in% names(m_res)) {
 
-  uniform_rows <- m_res[!is.na(m_res$flagged) & m_res$flagged &
-                          !is.na(m_res$dif_type) &
-                          m_res$dif_type %in% c("Uniform", "Uniform and Non-uniform"), ]
-  nu_rows      <- m_res[!is.na(m_res$flagged) & m_res$flagged &
-                          !is.na(m_res$dif_type) &
-                          m_res$dif_type == "Non-uniform", ]
+  flagged_res  <- m_res[!is.na(m_res$flagged) & m_res$flagged, ]
+  uniform_rows <- flagged_res[!is.na(flagged_res$dif_type) &
+                                flagged_res$dif_type %in%
+                                  c("Uniform", "Uniform and Non-uniform"), ]
+  nu_rows      <- flagged_res[!is.na(flagged_res$dif_type) &
+                                flagged_res$dif_type %in%
+                                  c("Non-uniform", "Uniform and Non-uniform"), ]
 
   if (nrow(uniform_rows) > 0) {
     tbl_u <- table(uniform_rows$ets_class)

@@ -247,13 +247,31 @@
 
   nu_threshold <- switch(nonuniform_es, MAPPD = 0.05, delta_r2 = 0.035, chi_sq = 3.84)
 
+  # Reclassify mixed items where the non-uniform ES is negligible: if the
+  # interaction p-value fired but MAPPD (or the selected nu_es metric) is
+  # below threshold, the non-uniform component is not practically meaningful
+  # and the item should be treated as purely Uniform.
+  result_df$dif_type <- ifelse(
+    result_df$dif_type == "Uniform and Non-uniform" &
+      !is.na(result_df$nu_es) &
+      result_df$nu_es < nu_threshold,
+    "Uniform",
+    result_df$dif_type
+  )
+
   primary <- result_df$p_adj < alpha & (
+    # Uniform only
     (!is.na(result_df$delta_r2_uniform) &
-       result_df$delta_r2_uniform >= 0.035) |
+       result_df$delta_r2_uniform >= 0.035 &
+       !is.na(result_df$dif_type) &
+       result_df$dif_type == "Uniform") |
+    # Mixed: omnibus ES threshold AND non-uniform ES confirms the interaction
     (!is.na(result_df$delta_r2_omnibus) &
        result_df$delta_r2_omnibus >= 0.035 &
        !is.na(result_df$dif_type) &
-       result_df$dif_type == "Uniform and Non-uniform")
+       result_df$dif_type == "Uniform and Non-uniform" &
+       !is.na(result_df$nu_es) &
+       result_df$nu_es >= nu_threshold)
   )
 
   nu_supplement <- !is.na(result_df$p_adj_interaction) &

@@ -208,10 +208,7 @@
     !is.na(p_nonuniform) & p_nonuniform < 2 * alpha &
     nu_es_ok & !primary_uniform
 
-  # Combined flagging
-  flagged_vec <- primary_uniform | nu_supplement
-
-  # DIF type classification
+  # DIF type classification (initial, before MAPPD reclassification)
   # "Uniform and Non-uniform": primary uniform flag AND marginal a-test (raw) is significant
   # "Uniform":                 primary uniform flag only
   # "Non-uniform":             nu_supplement only
@@ -222,6 +219,30 @@
     primary_uniform                                                        ~ "Uniform",
     nu_supplement                                                          ~ "Non-uniform",
     TRUE                                                                   ~ "None"
+  )
+
+  # Reclassify mixed items where the non-uniform ES is negligible to Uniform:
+  # a significant interaction p-value with negligible MAPPD (or std_chi_nu)
+  # means the non-uniform component is not practically meaningful.
+  dif_type <- ifelse(
+    dif_type == "Uniform and Non-uniform" & !nu_es_ok,
+    "Uniform",
+    dif_type
+  )
+
+  # Final type-specific flagging
+  flagged_vec <- dplyr::case_when(
+    dif_type == "Uniform" ~
+      !is.na(p_uniform_adj) & p_uniform_adj < alpha &
+      !is.na(std_chi_uniform) & std_chi_uniform >= es_u_threshold,
+    dif_type == "Non-uniform" ~
+      !is.na(p_nonuniform_adj) & p_nonuniform_adj < alpha &
+      nu_es_ok,
+    dif_type == "Uniform and Non-uniform" ~
+      !is.na(p_uniform_adj) & p_uniform_adj < alpha &
+      !is.na(std_chi_uniform) & std_chi_uniform >= es_u_threshold &
+      nu_es_ok,
+    TRUE ~ FALSE
   )
 
   # Type-specific primary p-values for display
