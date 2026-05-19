@@ -638,23 +638,29 @@ idifr <- function(data,
       marginal <- length(flagged_by_vars) > 0
       ix_dif   <- it %in% inter_flagged
 
-      # For MOB: a depth=1 split is a main effect (a single demographic
-      # variable splitting the intersectional sample), not genuine
-      # intersectional structure.  Only classify as "amplified" or
-      # "pure_intersection" when the intersectional tree reached depth >= 2
-      # (at least two variables split in sequence) OR used >= 2 distinct
-      # split variables — i.e. is_intersectional_structure is TRUE.
-      # When the intersectional run only found a depth=1 split, treat the
-      # item as if it was NOT detected in the intersectional run for ICA
-      # classification purposes; it will fall through to "obscured" (if
-      # marginal) or "none".
+      # For MOB: a depth=1 split (single variable) is a main effect, not
+      # genuine intersectional structure.  Only classify as "amplified" or
+      # "pure_intersection" when the tree split on >= 2 distinct demographic
+      # variables (tracked in split_vars_all as a "|"-separated string).
+      # Fall back to split_depth >= 2 for results produced by older code that
+      # predates split_vars_all.
+      # When the intersectional run found only a single-variable split, treat
+      # the item as if NOT detected in the intersectional run; it falls through
+      # to "obscured" (if marginal) or "none".
       effective_ix_dif <- ix_dif
       if (m == "MOB" && ix_dif) {
         it_row <- main_td[main_td$method == m &
                             as.character(main_td$item) == it, ]
-        if (nrow(it_row) > 0 && "split_depth" %in% names(it_row)) {
-          sd_val <- it_row$split_depth[1]
-          is_intersectional_structure <- !is.na(sd_val) && sd_val >= 2L
+        if (nrow(it_row) > 0) {
+          is_intersectional_structure <- FALSE
+          if ("split_vars_all" %in% names(it_row) &&
+              !is.na(it_row$split_vars_all[1])) {
+            sv <- strsplit(it_row$split_vars_all[1], "|", fixed = TRUE)[[1]]
+            is_intersectional_structure <- length(unique(sv)) >= 2L
+          } else if ("split_depth" %in% names(it_row)) {
+            sd_val <- it_row$split_depth[1]
+            is_intersectional_structure <- !is.na(sd_val) && sd_val >= 2L
+          }
           if (!is_intersectional_structure) effective_ix_dif <- FALSE
         }
       }

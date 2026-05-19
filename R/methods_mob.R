@@ -168,11 +168,12 @@
         std_diff >= ES_NEGLIGIBLE ~ "Moderate",
         TRUE                      ~ "Negligible"
       )
+      n_split_vars <- length(tree$split_vars_used)
       dif_source <- dplyr::case_when(
-        tree$depth >= 3L ~ "intersection",
-        tree$depth == 2L ~ "twoway",
-        tree$depth == 1L ~ "main",
-        TRUE             ~ "none"
+        n_split_vars >= 3L ~ "intersection",
+        n_split_vars == 2L ~ "twoway",
+        n_split_vars == 1L ~ "main",
+        TRUE               ~ "none"
       )
     } else {
       p_raw      <- NA_real_
@@ -188,6 +189,9 @@
       method         = "MOB",
       split_variable = tree$split_var,
       split_depth    = tree$depth,
+      split_vars_all = if (length(tree$split_vars_used) > 0L)
+                         paste(sort(tree$split_vars_used), collapse = "|")
+                       else NA_character_,
       dif_source     = dif_source,
       dif_type       = dif_type,
       std_diff       = std_diff,
@@ -277,7 +281,8 @@
                             min_n, max_depth, depth = 0L,
                             scores_alt = NULL) {
 
-  result <- list(split_var = NA_character_, p_split = NA_real_, depth = depth)
+  result <- list(split_var = NA_character_, p_split = NA_real_, depth = depth,
+                 split_vars_used = character(0))
 
   if (nrow(vars_data) < min_n || depth >= max_depth || length(vars) == 0L) {
     return(result)
@@ -331,9 +336,10 @@
 
   if (best_p > alpha_bonf) return(result)
 
-  result$split_var <- best_var
-  result$p_split   <- best_p
-  result$depth     <- depth + 1L
+  result$split_var        <- best_var
+  result$p_split          <- best_p
+  result$depth            <- depth + 1L
+  result$split_vars_used  <- best_var           # this node's variable
 
   remaining <- setdiff(vars, best_var)
   if (length(remaining) > 0L) {
@@ -350,6 +356,9 @@
           scores_alt = if (!is.null(scores_alt)) scores_alt[idx] else NULL
         )
         if (child$depth > result$depth) result$depth <- child$depth
+        # Accumulate distinct split variables used across all branches
+        result$split_vars_used <- union(result$split_vars_used,
+                                        child$split_vars_used)
       }
     }
   }
@@ -607,6 +616,7 @@
     method         = "MOB",
     split_variable = NA_character_,
     split_depth    = NA_integer_,
+    split_vars_all = NA_character_,
     dif_source     = NA_character_,
     dif_type       = NA_character_,
     std_diff       = NA_real_,
