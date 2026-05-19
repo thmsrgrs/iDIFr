@@ -652,21 +652,15 @@ plot.idifr <- function(x, type = "items", ...) {
 }
 
 
-#' Extract tidy DIF results
-#
-#' @description Generic for extracting tidy data frames from iDIFr objects.
-#' @param x An object.
-#' @param ... Additional arguments passed to methods.
-#' @return A data frame.
-#' @export
-tidy <- function(x, ...) UseMethod("tidy")
-
 #' Return tidy data frame of DIF results
 #
 #' @description
 #' Returns results as a tidy data frame suitable for use with `dplyr`,
 #' `ggplot2`, or for export. Use the `table` argument to choose which
 #' table to return.
+#
+#' Implements the `tidy` generic from the `generics` package so that
+#' `tidy()` works correctly regardless of whether `broom` is also loaded.
 #
 #' @param x An `idifr` object.
 #' @param table Which table to return. One of:
@@ -691,8 +685,12 @@ tidy <- function(x, ...) UseMethod("tidy")
 #
 #' # Group direction table for flagged items
 #' tidy(result, table = "direction")
+#
+#' # ICA classification table (requires ica = TRUE)
+#' tidy(result, table = "ica")
 #' }
 #
+#' @importFrom generics tidy
 #' @export
 tidy.idifr <- function(x, table = "results", ...) {
 
