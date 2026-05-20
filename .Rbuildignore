@@ -1,5 +1,4 @@
-^\.claude$
-^validate_irt_2pl\.R$
 ^getting-started\.Rmd$
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^LICENSE\.md$
