@@ -1,7 +1,7 @@
 Package: iDIFr
 Type: Package
 Title: Intersectional Differential Item Functioning Analysis in R
-Version: 0.1.0
+Version: 1.0.0
 Authors@R: person("Thomas", "Rogers", email = "thomas.rogers@britishcouncil.org", role = c("aut", "cre"))
 Description: A toolkit for detecting Differential Item Functioning (DIF) using Logistic Regression (LR), the IRT Likelihood Ratio Test (LRT), and model-based recursive partitioning (MOB). Designed for both standard two-group and intersectional multi-group designs, iDIFr prioritises effect size reporting alongside statistical significance, clear guidance on group construction, and interpretable output suitable for applied testing contexts. Built-in Intersectional Contrast Analysis (ICA) classifies items as amplified, pure-intersection, obscured, or none by comparing single-variable and intersectional analyses.
 License: MIT + file LICENSE

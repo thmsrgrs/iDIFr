@@ -5,6 +5,7 @@
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/thmsrgrs/iDIFr/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/thmsrgrs/iDIFr/actions)
 [![CRAN status](https://www.r-pkg.org/badges/version/iDIFr)](https://CRAN.R-project.org/package=iDIFr)
+[![R-CMD-check](https://github.com/thmsrgrs/iDIFr/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/thmsrgrs/iDIFr/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 `iDIFr` is an R package for detecting Differential Item
