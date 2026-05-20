@@ -7,7 +7,7 @@
 [![CRAN status](https://www.r-pkg.org/badges/version/iDIFr)](https://CRAN.R-project.org/package=iDIFr)
 <!-- badges: end -->
 
-`iDIFr` is a user-friendly R package for detecting Differential Item
+`iDIFr` is an R package for detecting Differential Item
 Functioning (DIF) using Logistic Regression, IRT Likelihood Ratio Tests, and
 model-based recursive partitioning (MOB) — with first-class support for
 **intersectional group designs** and built-in **Intersectional Contrast
@@ -16,10 +16,9 @@ Analysis (ICA)**.
 ## Why iDIFr?
 
 Most DIF packages focus on two-group comparisons along a single demographic
-dimension. `iDIFr` is built around the idea that test-takers carry multiple
-identities simultaneously, and that DIF sometimes only appears at the
-*intersection* of those identities — for example, in the group "women from
-non-English-speaking backgrounds aged 18–30", rather than in any single group.
+dimension. `iDIFr` is built around the idea that test-takers belong to multiple
+groups simultaneously, and that DIF sometimes only appears at the
+*intersection* of those identities.
 
 Key features:
 
