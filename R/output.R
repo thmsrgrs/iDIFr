@@ -692,30 +692,31 @@ plot.idifr <- function(x, type = "items", ...) {
 #
 #' @importFrom generics tidy
 #' @export
-tidy.idifr <- function(x, table = "results", ...) {
+tidy.idifr <- function(object, table = NULL, ...) {
 
-  table <- match.arg(table, c("results", "direction", "ica"))
-
-  if (table == "results") {
-    return(x$results)
+  # Check "ica" first with an explicit NULL-safe guard so that the ICA
+  # table is returned directly from object$ica without passing through
+  # match.arg — this is more robust when the generic dispatches via
+  # generics::tidy and extra arguments arrive through `...`.
+  if (!is.null(table) && table == "ica") {
+    if (is.null(object$ica)) {
+      message("No ICA table available. Re-run with ica = TRUE.")
+      return(invisible(NULL))
+    }
+    return(object$ica)
   }
 
-  if (table == "direction") {
-    if (is.null(x$group_direction)) {
+  if (!is.null(table) && table == "direction") {
+    if (is.null(object$group_direction)) {
       message(
         "No direction table available. Direction tables are produced for ",
         "flagged items when method = 'LR'."
       )
       return(invisible(NULL))
     }
-    return(x$group_direction)
+    return(object$group_direction)
   }
 
-  if (table == "ica") {
-    if (is.null(x$ica)) {
-      message("No ICA table available. Re-run with ica = TRUE.")
-      return(invisible(NULL))
-    }
-    return(x$ica)
-  }
+  # NULL or "results" (or anything unrecognised) → main results table
+  object$results
 }
