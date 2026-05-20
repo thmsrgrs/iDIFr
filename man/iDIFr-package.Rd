@@ -51,11 +51,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Author Name \email{author@email.com}
+\strong{Maintainer}: Thomas Rogers \email{thomas.rogers@britishcouncil.org}
 
 Authors:
 \itemize{
-  \item Author Name \email{author@email.com}
+  \item Thomas Rogers \email{thomas.rogers@britishcouncil.org}
 }
 
 }

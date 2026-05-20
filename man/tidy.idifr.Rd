@@ -4,15 +4,16 @@
 \alias{tidy.idifr}
 \title{Return tidy data frame of DIF results}
 \usage{
-\method{tidy}{idifr}(x, table = "results", ...)
+\method{tidy}{idifr}(x, table = NULL, ...)
 }
 \arguments{
 \item{x}{An \code{idifr} object.}
 
-\item{table}{Which table to return. One of:
+\item{table}{Which table to return.  \code{NULL} (default) returns the main
+results table.  Other accepted values:
 \describe{
-\item{\code{"results"}}{(default) One row per item per method. Includes
-test statistics, p-values, effect sizes, and DIF classification.}
+\item{\code{"results"}}{One row per item per method. Includes test
+statistics, p-values, effect sizes, and DIF classification.}
 \item{\code{"direction"}}{One row per group per flagged item. Shows
 direction and magnitude of DIF for each group. Only available
 when \code{method} includes \code{"LR"}.}
@@ -29,13 +30,17 @@ A data frame.
 Returns results as a tidy data frame suitable for use with \code{dplyr},
 \code{ggplot2}, or for export. Use the \code{table} argument to choose which
 table to return.
+Implements the \code{tidy} generic from the \code{generics} package so that
+\code{tidy()} works correctly regardless of whether \code{broom} is also loaded.
 }
 \examples{
 \dontrun{
-# Item-level results
+# Item-level results (default)
 tidy(result)
 tidy(result, table = "results")
 # Group direction table for flagged items
 tidy(result, table = "direction")
+# ICA classification table (requires ica = TRUE)
+tidy(result, table = "ica")
 }
 }

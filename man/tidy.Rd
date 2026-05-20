@@ -2,18 +2,22 @@
 % Please edit documentation in R/output.R
 \name{tidy}
 \alias{tidy}
-\title{Extract tidy DIF results}
+\title{Tidy an idifr object}
 \usage{
 tidy(x, ...)
 }
 \arguments{
-\item{x}{An object.}
+\item{x}{An object to tidy.  When \code{x} is an \code{idifr} object
+the \code{\link{tidy.idifr}} method is dispatched.}
 
-\item{...}{Additional arguments passed to methods.}
+\item{...}{Additional arguments passed to the method.}
 }
 \value{
-A data frame.
+A data frame (exact structure depends on the method dispatched).
 }
 \description{
-Generic for extracting tidy data frames from iDIFr objects.
+Re-exports \code{\link[generics:tidy]{generics::tidy}} so that
+\code{tidy()} is available after \code{library(iDIFr)} without loading
+\pkg{broom} or \pkg{generics} separately.  For the iDIFr-specific
+method see \code{\link{tidy.idifr}}.
 }

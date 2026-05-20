@@ -8,9 +8,10 @@ fit_2pl(
   resp,
   group = NULL,
   constrain = "items",
-  n_nodes = 21,
-  max_iter = 500,
+  n_nodes = 15,
+  max_iter = 200,
   tol = 1e-04,
+  start = NULL,
   verbose = FALSE
 )
 }
@@ -28,11 +29,18 @@ NULL for single-group calibration.}
 \item \code{"beta"}  — b fixed across groups, a free (non-uniform DIF test)
 }}
 
-\item{n_nodes}{Number of quadrature nodes. Default 21.}
+\item{n_nodes}{Number of quadrature nodes. Default 15. Values of 11-21
+are appropriate for DIF detection; use 21 for publication-
+quality parameter estimates.}
 
-\item{max_iter}{Maximum EM iterations. Default 500.}
+\item{max_iter}{Maximum EM iterations. Default 200.}
 
 \item{tol}{Convergence tolerance on log-likelihood change. Default 1e-4.}
+
+\item{start}{Optional list with elements \code{a} and \code{b} (numeric
+vectors of length = number of items) to warm-start the EM
+loop. If \code{NULL} (default), the usual data-driven
+starting values are used.}
 
 \item{verbose}{Print iteration log. Default FALSE.}
 }

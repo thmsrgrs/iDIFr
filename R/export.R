@@ -1,4 +1,4 @@
-# export.R — Export iDIFr results to Excel
+# export.R \u2014 Export iDIFr results to Excel
 #
 # Writes an idifr result object to a formatted .xlsx workbook.
 # Requires the 'openxlsx' package (listed in Suggests).
@@ -193,7 +193,7 @@ export_results <- function(x, file,
 
   if (length(sheets) == 0) {
     cli::cli_alert_warning(
-      "No sheets to write — check that the requested sheets are available."
+      "No sheets to write \u2014 check that the requested sheets are available."
     )
     return(invisible(x))
   }

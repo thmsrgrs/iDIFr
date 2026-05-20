@@ -652,6 +652,25 @@ plot.idifr <- function(x, type = "items", ...) {
 }
 
 
+#' Tidy an idifr object
+#'
+#' @description
+#' Re-exports \code{\link[generics:tidy]{generics::tidy}} so that
+#' \code{tidy()} is available after \code{library(iDIFr)} without loading
+#' \pkg{broom} or \pkg{generics} separately.  For the iDIFr-specific
+#' method see \code{\link{tidy.idifr}}.
+#'
+#' @param x An object to tidy.  When \code{x} is an \code{idifr} object
+#'   the \code{\link{tidy.idifr}} method is dispatched.
+#' @param ... Additional arguments passed to the method.
+#'
+#' @return A data frame (exact structure depends on the method dispatched).
+#'
+#' @name tidy
+#' @importFrom generics tidy
+#' @export
+tidy <- generics::tidy
+
 #' Return tidy data frame of DIF results
 #
 #' @description
@@ -663,10 +682,11 @@ plot.idifr <- function(x, type = "items", ...) {
 #' `tidy()` works correctly regardless of whether `broom` is also loaded.
 #
 #' @param x An `idifr` object.
-#' @param table Which table to return. One of:
+#' @param table Which table to return.  `NULL` (default) returns the main
+#'   results table.  Other accepted values:
 #'   \describe{
-#'     \item{`"results"`}{(default) One row per item per method. Includes
-#'       test statistics, p-values, effect sizes, and DIF classification.}
+#'     \item{`"results"`}{One row per item per method. Includes test
+#'       statistics, p-values, effect sizes, and DIF classification.}
 #'     \item{`"direction"`}{One row per group per flagged item. Shows
 #'       direction and magnitude of DIF for each group. Only available
 #'       when `method` includes `"LR"`.}
@@ -679,7 +699,7 @@ plot.idifr <- function(x, type = "items", ...) {
 #
 #' @examples
 #' \dontrun{
-#' # Item-level results
+#' # Item-level results (default)
 #' tidy(result)
 #' tidy(result, table = "results")
 #
@@ -692,31 +712,31 @@ plot.idifr <- function(x, type = "items", ...) {
 #
 #' @importFrom generics tidy
 #' @export
-tidy.idifr <- function(object, table = NULL, ...) {
+tidy.idifr <- function(x, table = NULL, ...) {
 
   # Check "ica" first with an explicit NULL-safe guard so that the ICA
-  # table is returned directly from object$ica without passing through
-  # match.arg — this is more robust when the generic dispatches via
-  # generics::tidy and extra arguments arrive through `...`.
+  # table is returned directly from x$ica without passing through
+  # match.arg — more robust when generics::tidy dispatches the extra
+  # `table` argument through `...`.
   if (!is.null(table) && table == "ica") {
-    if (is.null(object$ica)) {
+    if (is.null(x$ica)) {
       message("No ICA table available. Re-run with ica = TRUE.")
       return(invisible(NULL))
     }
-    return(object$ica)
+    return(x$ica)
   }
 
   if (!is.null(table) && table == "direction") {
-    if (is.null(object$group_direction)) {
+    if (is.null(x$group_direction)) {
       message(
         "No direction table available. Direction tables are produced for ",
         "flagged items when method = 'LR'."
       )
       return(invisible(NULL))
     }
-    return(object$group_direction)
+    return(x$group_direction)
   }
 
-  # NULL or "results" (or anything unrecognised) → main results table
-  object$results
+  # NULL, "results", or anything else -> main results table
+  x$results
 }

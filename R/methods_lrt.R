@@ -340,7 +340,7 @@
         }
         dif_str <- if (!is.na(r$dif_type)) r$dif_type else ""
         cat(sprintf(
-          "  %-20s  ⚠  %s  [%s]  %s\n",
+          "  %-20s  \u26a0  %s  [%s]  %s\n",
           r$item, es_part,
           if (!is.na(r$dif_type) && r$dif_type == "Non-uniform") r$mappd_class
           else r$es_class_uniform,
@@ -348,7 +348,7 @@
         ))
       } else {
         cat(sprintf(
-          "  %-20s  ✓  No DIF  (chi2=%.3f  p=%.3f)\n",
+          "  %-20s  \u2713  No DIF  (chi2=%.3f  p=%.3f)\n",
           r$item, r$chi_sq, r$p_adj
         ))
       }
@@ -729,7 +729,7 @@ local({
 .lrt_log <- function(msg, verbose, detail = NULL, success = FALSE) {
   if (!verbose) return(invisible(NULL))
   timestamp <- format(Sys.time(), "[%H:%M:%S]")
-  symbol    <- if (success) "✓" else " "
+  symbol    <- if (success) "\u2713" else " "
   cat(sprintf("  %s %s %s", timestamp, symbol, msg))
   if (!is.null(detail)) cat(sprintf("  (%s)", detail))
   cat("\n")
