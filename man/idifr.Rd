@@ -81,7 +81,7 @@ all items are used as anchors in the first pass.}
 \item{nonuniform_es}{Character. The effect size metric to use for
 non-uniform DIF detection when \code{method} includes \code{"LR"}. One of:
 \code{"MAPPD"} (default) — Maximum Absolute Predicted Probability Difference
-(probability scale, threshold 0.05); \code{"delta_r2"} — Nagelkerke ΔR² for
+(probability scale, threshold 0.05); \code{"delta_r2"} — Nagelkerke \eqn{\Delta R^2} for
 the interaction component (threshold 0.035); \code{"chi_sq"} — chi-square
 statistic for the interaction term (threshold 3.84). MAPPD is always
 computed and stored regardless of this setting.}

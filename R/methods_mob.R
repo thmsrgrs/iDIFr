@@ -25,8 +25,8 @@
   # K >= 3 or when large group ability differences (impact) leave residual
   # contamination after total-score conditioning.
   #
-  # Calibration against the LR method: LR's ΔR² >= 0.035 gate corresponds
-  # to approximately std_diff >= 0.40 for K=3 groups (via η² → Cohen's f
+  # Calibration against the LR method: LR's delta-R2 >= 0.035 gate corresponds
+  # to approximately std_diff >= 0.40 for K=3 groups (via eta^2 → Cohen's f
   # → range-based d conversion).  Setting ES_NEGLIGIBLE = 0.35 gives MOB
   # slightly more sensitivity than LR while filtering the noise band that
   # caused over-detection (items with std_diff 0.20–0.35 that are typically

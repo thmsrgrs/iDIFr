@@ -57,7 +57,7 @@
 #' @param nonuniform_es Character. The effect size metric to use for
 #'   non-uniform DIF detection when `method` includes `"LR"`. One of:
 #'   `"MAPPD"` (default) — Maximum Absolute Predicted Probability Difference
-#'   (probability scale, threshold 0.05); `"delta_r2"` — Nagelkerke ΔR² for
+#'   (probability scale, threshold 0.05); `"delta_r2"` — Nagelkerke \eqn{\Delta R^2} for
 #'   the interaction component (threshold 0.035); `"chi_sq"` — chi-square
 #'   statistic for the interaction term (threshold 3.84). MAPPD is always
 #'   computed and stored regardless of this setting.
