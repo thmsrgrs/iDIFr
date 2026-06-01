@@ -23,18 +23,11 @@
 #'   to `merge_groups()`, `group_details()`, or `cross_details()`.
 #'
 #' @examples
-#' \dontrun{
-#' # Basic group check
-#' grp <- check_groups(my_data, group = ~ gender * nationality * age_band)
-#'
-#' # With crossing check
-#' grp <- check_groups(my_data,
-#'                     group    = ~ gender * nationality * age_band,
+#' \donttest{
+#' dat <- simulate_dif(300, 10,
+#'   demo_vars = list(nationality = c("UK", "DE", "FR")), seed = 1)
+#' grp <- check_groups(dat, group = ~ group * nationality,
 #'                     cross_by = "nationality")
-#'
-#' # See full breakdowns
-#' group_details(grp)
-#' cross_details(grp, cross_by = "nationality")
 #' }
 #'
 #' @seealso [group_details()], [cross_details()], [merge_groups()], [idifr()]
@@ -183,8 +176,10 @@ check_groups <- function(data,
 #' @return The `idifr_groups` object, invisibly.
 #'
 #' @examples
-#' \dontrun{
-#' grp <- check_groups(my_data, group = ~ gender * nationality * age_band)
+#' \donttest{
+#' dat <- simulate_dif(300, 10,
+#'   demo_vars = list(nationality = c("UK", "DE", "FR")), seed = 1)
+#' grp <- check_groups(dat, group = ~ group * nationality, plot = FALSE)
 #' group_details(grp)
 #' }
 #'
@@ -275,10 +270,11 @@ group_details <- function(grp, min_cell_size = NULL) {
 #' @return The `idifr_groups` object, invisibly.
 #'
 #' @examples
-#' \dontrun{
-#' grp <- check_groups(my_data,
-#'                     group    = ~ gender * nationality * age_band,
-#'                     cross_by = "nationality")
+#' \donttest{
+#' dat <- simulate_dif(300, 10,
+#'   demo_vars = list(nationality = c("UK", "DE", "FR")), seed = 1)
+#' grp <- check_groups(dat, group = ~ group * nationality,
+#'                     cross_by = "nationality", plot = FALSE)
 #' cross_details(grp, cross_by = "nationality")
 #' }
 #'
@@ -431,13 +427,12 @@ cross_details <- function(grp, cross_by, min_cell_size = NULL) {
 #' @return The original data frame with recoded grouping variable(s).
 #'
 #' @examples
-#' \dontrun{
-#' grp <- check_groups(my_data, group = ~ nationality * age_band)
-#'
-#' merged_data <- merge_groups(
-#'   grp,
-#'   age_band = list("18-30" = c("18-24", "25-30"))
-#' )
+#' \donttest{
+#' dat <- simulate_dif(300, 10,
+#'   demo_vars = list(nationality = c("UK", "DE", "FR", "ES")), seed = 1)
+#' grp <- check_groups(dat, group = ~ group * nationality, plot = FALSE)
+#' merged <- merge_groups(grp,
+#'   nationality = list("Other" = c("DE", "FR", "ES")))
 #' }
 #'
 #' @export

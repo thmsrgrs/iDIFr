@@ -35,18 +35,11 @@ optionally checks which levels of specified variables are fully crossed, and
 points to \code{group_details()} and \code{cross_details()} for full breakdowns.
 }
 \examples{
-\dontrun{
-# Basic group check
-grp <- check_groups(my_data, group = ~ gender * nationality * age_band)
-
-# With crossing check
-grp <- check_groups(my_data,
-                    group    = ~ gender * nationality * age_band,
+\donttest{
+dat <- simulate_dif(300, 10,
+  demo_vars = list(nationality = c("UK", "DE", "FR")), seed = 1)
+grp <- check_groups(dat, group = ~ group * nationality,
                     cross_by = "nationality")
-
-# See full breakdowns
-group_details(grp)
-cross_details(grp, cross_by = "nationality")
 }
 
 }

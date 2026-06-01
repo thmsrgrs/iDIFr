@@ -91,13 +91,12 @@ utils::globalVariables(c(".data", "n", "method", "item", "es", "flagged"))
 #'   True item parameters and DIF metadata are stored as attributes.
 #'
 #' @examples
-#' \dontrun{
-#' # Standard DIF — unchanged behaviour
+#' # Standard DIF
 #' dat <- simulate_dif(500, 20, 2, c(3, 7), 1.0)
 #'
 #' # Intersection-only DIF
 #' dat_ix <- simulate_dif(
-#'   n_persons     = 2000,
+#'   n_persons     = 500,
 #'   n_items       = 20,
 #'   dif_items     = c(5, 12),
 #'   dif_effect    = 1.5,
@@ -110,7 +109,7 @@ utils::globalVariables(c(".data", "n", "method", "item", "es", "flagged"))
 #'
 #' # Mixed DIF
 #' dat_mix <- simulate_dif(
-#'   n_persons     = 2000,
+#'   n_persons     = 500,
 #'   n_items       = 20,
 #'   dif_items     = list(standard = c(3, 7), intersection = c(12, 15)),
 #'   dif_effect    = 1.0,
@@ -120,7 +119,6 @@ utils::globalVariables(c(".data", "n", "method", "item", "es", "flagged"))
 #'                        age_band    = c("Young", "Old")),
 #'   seed          = 42
 #' )
-#' }
 #'
 #' @export
 simulate_dif <- function(n_persons     = 500,

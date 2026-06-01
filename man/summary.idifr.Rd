@@ -11,6 +11,9 @@
 
 \item{...}{Ignored.}
 }
+\value{
+No return value, called for side effects.
+}
 \description{
 Summary method for idifr objects
 }

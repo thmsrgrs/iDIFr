@@ -27,13 +27,12 @@ demographic variables. Returns a modified data frame ready to pass back
 to \code{idifr()} or \code{check_groups()}.
 }
 \examples{
-\dontrun{
-grp <- check_groups(my_data, group = ~ nationality * age_band)
-
-merged_data <- merge_groups(
-  grp,
-  age_band = list("18-30" = c("18-24", "25-30"))
-)
+\donttest{
+dat <- simulate_dif(300, 10,
+  demo_vars = list(nationality = c("UK", "DE", "FR", "ES")), seed = 1)
+grp <- check_groups(dat, group = ~ group * nationality, plot = FALSE)
+merged <- merge_groups(grp,
+  nationality = list("Other" = c("DE", "FR", "ES")))
 }
 
 }

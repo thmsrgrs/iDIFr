@@ -65,13 +65,12 @@ DIF confined to a single intersectional cell (\code{"intersection"}), and a
 mixture of both (\code{"mixed"}).
 }
 \examples{
-\dontrun{
-# Standard DIF — unchanged behaviour
+# Standard DIF
 dat <- simulate_dif(500, 20, 2, c(3, 7), 1.0)
 
 # Intersection-only DIF
 dat_ix <- simulate_dif(
-  n_persons     = 2000,
+  n_persons     = 500,
   n_items       = 20,
   dif_items     = c(5, 12),
   dif_effect    = 1.5,
@@ -84,7 +83,7 @@ dat_ix <- simulate_dif(
 
 # Mixed DIF
 dat_mix <- simulate_dif(
-  n_persons     = 2000,
+  n_persons     = 500,
   n_items       = 20,
   dif_items     = list(standard = c(3, 7), intersection = c(12, 15)),
   dif_effect    = 1.0,
@@ -94,6 +93,5 @@ dat_mix <- simulate_dif(
                        age_band    = c("Young", "Old")),
   seed          = 42
 )
-}
 
 }

@@ -25,13 +25,12 @@
 #' @return `x` invisibly (so the call can be piped).
 #'
 #' @examples
-#' \dontrun{
-#' result <- idifr(dat, 1:20, ~ gender * country, method = c("LR", "LRT"),
-#'                 ica = TRUE)
-#' export_results(result, "my_dif_results.xlsx")
-#'
-#' # Only summary and ICA sheets
-#' export_results(result, "summary_only.xlsx", sheets = c("summary", "ica"))
+#' \donttest{
+#' if (requireNamespace("openxlsx", quietly = TRUE)) {
+#'   dat <- simulate_dif(300, 10, dif_items = c(3, 7), seed = 1)
+#'   result <- idifr(dat, 1:10, ~ group, method = "LR", verbose = FALSE)
+#'   export_results(result, tempfile(fileext = ".xlsx"))
+#' }
 #' }
 #'
 #' @export

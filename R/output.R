@@ -48,6 +48,7 @@
 #
 #' @param x An `idifr` object.
 #' @param ... Ignored.
+#' @return No return value, called for side effects.
 #' @export
 print.idifr <- function(x, ...) {
 
@@ -379,6 +380,7 @@ print.idifr <- function(x, ...) {
 #
 #' @param object An `idifr` object.
 #' @param ... Ignored.
+#' @return No return value, called for side effects.
 #' @export
 summary.idifr <- function(object, ...) {
 
@@ -543,6 +545,7 @@ summary.idifr <- function(object, ...) {
 #'   sizes across methods), `"concordance"` (method agreement heatmap), or
 #'   `"groups"` (cell size heatmap from the group structure).
 #' @param ... Ignored.
+#' @return No return value, called for side effects.
 #' @export
 plot.idifr <- function(x, type = "items", ...) {
   switch(type,
@@ -698,20 +701,26 @@ tidy <- generics::tidy
 #' @return A data frame.
 #
 #' @examples
-#' \dontrun{
+#' \donttest{
+#' dat <- simulate_dif(300, 10, dif_items = c(3, 7), seed = 1)
+#' result <- idifr(dat, 1:10, ~ group, method = "LR")
+#'
 #' # Item-level results (default)
 #' tidy(result)
 #' tidy(result, table = "results")
-#
+#'
 #' # Group direction table for flagged items
 #' tidy(result, table = "direction")
-#
+#'
 #' # ICA classification table (requires ica = TRUE)
-#' tidy(result, table = "ica")
+#' dat_ix <- simulate_dif(500, 10,
+#'   demo_vars = list(nationality = c("UK", "DE")), seed = 2)
+#' result_ix <- idifr(dat_ix, 1:10, ~ group * nationality,
+#'                    method = "LR", ica = TRUE)
+#' tidy(result_ix, table = "ica")
 #' }
 #
-#' @importFrom generics tidy
-#' @export
+#' @exportS3Method generics::tidy idifr
 tidy.idifr <- function(x, table = NULL, ...) {
 
   # Check "ica" first with an explicit NULL-safe guard so that the ICA

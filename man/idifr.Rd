@@ -122,43 +122,18 @@ small cell sizes trigger a warning. Use \code{exclude_below_min} and
 \code{fully_crossed} to control whether those groups are included in the analysis.
 }
 \examples{
-\dontrun{
-# Basic two-group analysis
-result <- idifr(
-  data   = my_data,
-  items  = 1:20,
-  group  = ~ gender,
-  method = c("LR", "LRT")
-)
+\donttest{
+# Basic two-group analysis using synthetic data
+dat <- simulate_dif(300, 10, dif_items = c(3, 7), seed = 1)
+result <- idifr(dat, 1:10, ~ group, method = "LR")
+print(result)
 
-# Intersectional analysis, excluding groups below minimum
-result <- idifr(
-  data              = my_data,
-  items             = 1:20,
-  group             = ~ gender * nationality * age_band,
-  method            = c("LR", "LRT"),
-  min_cell_size     = 50,
-  exclude_below_min = TRUE
-)
-
-# Only include nationalities fully crossed across gender and age_band
-result <- idifr(
-  data          = my_data,
-  items         = 1:20,
-  group         = ~ gender * nationality * age_band,
-  method        = "LR",
-  fully_crossed = "nationality"
-)
-
-# Restrict to specific variable values
-result <- idifr(
-  data            = my_data,
-  items           = 1:20,
-  group           = ~ gender * nationality * age_band,
-  method          = "LR",
-  value_selection = list(nationality = c("UK", "France"),
-                         age_band    = c("Young", "Old"))
-)
+# Intersectional analysis with ICA
+dat_ix <- simulate_dif(500, 10,
+  demo_vars = list(nationality = c("UK", "DE", "FR")),
+  seed = 2)
+result_ix <- idifr(dat_ix, 1:10, ~ group * nationality,
+                   method = "LR", ica = TRUE)
 }
 
 }

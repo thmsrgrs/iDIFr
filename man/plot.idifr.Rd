@@ -15,6 +15,9 @@ sizes across methods), \code{"concordance"} (method agreement heatmap), or
 
 \item{...}{Ignored.}
 }
+\value{
+No return value, called for side effects.
+}
 \description{
 Plot method for idifr objects
 }

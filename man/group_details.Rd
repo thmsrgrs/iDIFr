@@ -21,8 +21,10 @@ group, flagging those below the recommended minimum. This is the full
 breakdown that \code{check_groups()} summarises in a single line.
 }
 \examples{
-\dontrun{
-grp <- check_groups(my_data, group = ~ gender * nationality * age_band)
+\donttest{
+dat <- simulate_dif(300, 10,
+  demo_vars = list(nationality = c("UK", "DE", "FR")), seed = 1)
+grp <- check_groups(dat, group = ~ group * nationality, plot = FALSE)
 group_details(grp)
 }
 

@@ -34,13 +34,22 @@ Implements the \code{tidy} generic from the \code{generics} package so that
 \code{tidy()} works correctly regardless of whether \code{broom} is also loaded.
 }
 \examples{
-\dontrun{
+\donttest{
+dat <- simulate_dif(300, 10, dif_items = c(3, 7), seed = 1)
+result <- idifr(dat, 1:10, ~ group, method = "LR")
+
 # Item-level results (default)
 tidy(result)
 tidy(result, table = "results")
+
 # Group direction table for flagged items
 tidy(result, table = "direction")
+
 # ICA classification table (requires ica = TRUE)
-tidy(result, table = "ica")
+dat_ix <- simulate_dif(500, 10,
+  demo_vars = list(nationality = c("UK", "DE")), seed = 2)
+result_ix <- idifr(dat_ix, 1:10, ~ group * nationality,
+                   method = "LR", ica = TRUE)
+tidy(result_ix, table = "ica")
 }
 }

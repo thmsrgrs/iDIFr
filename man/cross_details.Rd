@@ -25,10 +25,11 @@ One row per level, showing how many cells are adequate and the smallest
 cell size observed.
 }
 \examples{
-\dontrun{
-grp <- check_groups(my_data,
-                    group    = ~ gender * nationality * age_band,
-                    cross_by = "nationality")
+\donttest{
+dat <- simulate_dif(300, 10,
+  demo_vars = list(nationality = c("UK", "DE", "FR")), seed = 1)
+grp <- check_groups(dat, group = ~ group * nationality,
+                    cross_by = "nationality", plot = FALSE)
 cross_details(grp, cross_by = "nationality")
 }
 
