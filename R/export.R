@@ -62,7 +62,7 @@ export_results <- function(x, file,
     "p_overall", "p_adj", "p_adj_interaction",
     "delta_r2_uniform", "delta_r2_interaction",
     "delta_r2_omnibus", "delta_r2",
-    "mappd", "nu_es", "nu_es_class", "ets_class"
+    "mappd", "nu_es", "nu_es_class", "es_class"
   )
 
   lrt_cols <- c(
@@ -121,7 +121,7 @@ export_results <- function(x, file,
   if ("LR" %in% methods_run) {
     lr_s <- safe_select(
       tabs$lr,
-      c("item", "flagged", "dif_type", "delta_r2", "ets_class", "p_adj")
+      c("item", "flagged", "dif_type", "delta_r2", "es_class", "p_adj")
     )
     names(lr_s)[names(lr_s) != "item"] <-
       paste0("LR_", names(lr_s)[names(lr_s) != "item"])

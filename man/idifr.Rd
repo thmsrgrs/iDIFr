@@ -94,7 +94,7 @@ An object of class \code{idifr} containing:
 \describe{
 \item{results}{A data frame with one row per item per method, including
 test statistics, p-values, adjusted p-values, effect sizes, and DIF
-classification (A/B/C for LR; negligible/moderate/large for LRT and ID).}
+classification (negligible/moderate/large for all methods).}
 \item{groups}{An \code{idifr_groups} object describing the group structure,
 cell sizes, and any small-cell warnings.}
 \item{method}{Character vector of methods used.}

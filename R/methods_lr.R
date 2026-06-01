@@ -36,10 +36,10 @@
 # default: it is on the probability scale and unaffected by the floor effects
 # that make delta_r2_interaction very small for crossing ICCs.
 #
-# ETS classification (A/B/C) applies to Nagelkerke delta R-squared:
-# - A (negligible): delta R2 < 0.035
-# - B (moderate):   0.035 <= delta R2 < 0.070
-# - C (large):      delta R2 >= 0.070
+# Effect size classification applies to Nagelkerke delta R-squared:
+# - Negligible: delta R2 < 0.035
+# - Moderate:   0.035 <= delta R2 < 0.070
+# - Large:      delta R2 >= 0.070
 # MAPPD classification: Negligible < 0.05 <= Moderate < 0.10 <= Large.
 
 .run_lr <- function(data, item_cols, groups, alpha, p_adjust, verbose,
@@ -166,9 +166,9 @@
       TRUE                        ~ p_uniform
     )
 
-    # ETS classification for uniform items; nu_es_class for non-uniform.
-    ets_class <- dplyr::case_when(
-      is.na(dif_type) | dif_type == "None"  ~ "A (negligible)",
+    # Effect size classification for uniform items; nu_es_class for non-uniform.
+    es_class <- dplyr::case_when(
+      is.na(dif_type) | dif_type == "None"  ~ "Negligible",
       dif_type == "Uniform"                 ~ .ets_classify(delta_r2_uniform),
       dif_type == "Non-uniform"             ~ nu_es_class,
       TRUE                                  ~ .ets_classify(delta_r2_omnibus)
@@ -194,7 +194,7 @@
       nu_es                = round(nu_es,                4),
       nu_es_class          = nu_es_class,
       nu_es_label          = nu_es_label,
-      ets_class            = ets_class,
+      es_class             = es_class,
       dif_type             = dif_type,
       stringsAsFactors     = FALSE
     )
@@ -218,9 +218,9 @@
       has_effect <- delta_r2_uniform >= 0.035 ||
         (!is.na(nu_es) && nu_es >= nu_thresh)
       status <- if (!is.na(p_overall) && p_overall < alpha && has_effect) {
-        paste0("[", ets_class, "] ", dif_type, " DIF")
+        paste0("[", es_class, "] ", dif_type, " DIF")
       } else {
-        "[A] No DIF"
+        "[Negligible] No DIF"
       }
       cat(sprintf("  %-20s  %s\n", item_name, status))
     }
@@ -466,9 +466,9 @@
 .ets_classify <- function(delta_r2) {
   dplyr::case_when(
     is.na(delta_r2)  ~ NA_character_,
-    delta_r2 < 0.035 ~ "A (negligible)",
-    delta_r2 < 0.070 ~ "B (moderate)",
-    TRUE             ~ "C (large)"
+    delta_r2 < 0.035 ~ "Negligible",
+    delta_r2 < 0.070 ~ "Moderate",
+    TRUE             ~ "Large"
   )
 }
 
@@ -524,7 +524,7 @@
     nu_es                = NA_real_,
     nu_es_class          = NA_character_,
     nu_es_label          = NA_character_,
-    ets_class            = NA_character_,
+    es_class             = NA_character_,
     dif_type             = NA_character_,
     p_adj                = NA_real_,
     p_adj_interaction    = NA_real_,

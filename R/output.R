@@ -114,7 +114,7 @@ print.idifr <- function(x, ...) {
 
         } else {
           # Uniform or None: show uniform delta-R2
-          es_str <- paste0("delta-R2(uniform) = ", r$delta_r2, "  [", r$ets_class, "]")
+          es_str <- paste0("delta-R2(uniform) = ", r$delta_r2, "  [", r$es_class, "]")
         }
 
       } else if (r$method == "LRT") {
@@ -418,7 +418,7 @@ summary.idifr <- function(object, ...) {
     }
 
     # Effect size distribution (flagged items only)
-    if (m == "LR" && "ets_class" %in% names(m_res)) {
+    if (m == "LR" && "es_class" %in% names(m_res)) {
 
       flagged_res  <- m_res[!is.na(m_res$flagged) & m_res$flagged, ]
       uniform_rows <- flagged_res[!is.na(flagged_res$dif_type) &
@@ -429,8 +429,8 @@ summary.idifr <- function(object, ...) {
                                       c("Non-uniform", "Uniform and Non-uniform"), ]
 
       if (nrow(uniform_rows) > 0) {
-        tbl_u <- table(uniform_rows$ets_class)
-        cat("  Effect size distribution for flagged items (ETS, delta-R2):\n")
+        tbl_u <- table(uniform_rows$es_class)
+        cat("  Effect size distribution (flagged items only):\n")
         for (cls in names(tbl_u)) {
           cat(sprintf("    %-20s  %d items\n", cls, tbl_u[cls]))
         }
@@ -571,7 +571,7 @@ plot.idifr <- function(x, type = "items", ...) {
   )
 
   res$es_label <- dplyr::case_when(
-    res$method == "LR"  ~ res$ets_class,
+    res$method == "LR"  ~ res$es_class,
     res$method == "LRT" ~ res$es_class,
     res$method == "MOB"  ~ res$es_class,
     TRUE                ~ NA_character_
