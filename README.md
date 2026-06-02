@@ -1,6 +1,6 @@
 # iDIFr <img src="man/figures/logo.png" align="right" height="139" alt="" />
 
-**Intersectional Differential Item Functioning Analysis in R**
+**Intersectional Differential Item Functioning Analysis**
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/thmsrgrs/iDIFr/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/thmsrgrs/iDIFr/actions/workflows/R-CMD-check.yaml)
@@ -193,8 +193,7 @@ dat_mixed <- simulate_dif(
 If you use `iDIFr` in published work, please cite:
 
 ```
-Rogers, T. (2026). iDIFr: Intersectional Differential Item Functioning
-Analysis in R. R package version 1.0.0.
+Rogers, T. (2026). iDIFr: Intersectional Differential Item Functioning Analysis. R package version 1.0.1. 
 https://CRAN.R-project.org/package=iDIFr
 ```
 
