@@ -597,13 +597,35 @@ idifr <- function(data,
   main_td <- tidy(main_result)
 
   # Classify per item per method
+  # data is already min_cell_size-filtered; nrow() gives the intersectional N.
+  n_ix <- nrow(data)
+
   all_rows <- lapply(method, function(m) {
 
-    inter_flagged   <- .ica_flagged_items(main_td, m, alpha)
-    single_flags_m  <- stats::setNames(
-      lapply(vars, function(v) .ica_flagged_items(tidy(single_runs[[v]]), m, alpha)),
+    inter_flagged <- .ica_flagged_items(main_td, m, alpha)
+
+    # Pre-compute per-variable tidy data (filtered to method m) so each is
+    # fetched once and reused for both flagging and LRT stat extraction.
+    single_td_m <- stats::setNames(
+      lapply(vars, function(v) {
+        td <- tidy(single_runs[[v]])
+        td[td$method == m, , drop = FALSE]
+      }),
       vars
     )
+
+    single_flags_m <- stats::setNames(
+      lapply(vars, function(v) .ica_flagged_items(single_td_m[[v]], m, alpha)),
+      vars
+    )
+
+    # Per-variable sample sizes needed only for LRT sample_size_marginal.
+    n_single_m <- if (m == "LRT") {
+      stats::setNames(
+        lapply(vars, function(v) sum(single_runs[[v]]$groups$cell_counts$n, na.rm = TRUE)),
+        vars
+      )
+    } else NULL
 
     lapply(item_cols, function(it) {
 
@@ -647,14 +669,53 @@ idifr <- function(data,
         TRUE                          ~ "none"
       )
 
+      # LRT only: expose the most significant (lowest p_adj) single-variable
+      # test statistics for this item as marginal diagnostic columns.
+      if (m == "LRT") {
+        var_stats <- lapply(vars, function(v) {
+          r <- single_td_m[[v]][as.character(single_td_m[[v]]$item) == it, , drop = FALSE]
+          if (nrow(r) == 0L) return(NULL)
+          list(chi_sq = r$chi_sq[1], df = r$df[1], p_adj = r$p_adj[1],
+               n = n_single_m[[v]])
+        })
+        var_stats <- Filter(Negate(is.null), var_stats)
+
+        if (length(var_stats) > 0L) {
+          p_vals <- vapply(var_stats, function(s) {
+            p <- s$p_adj
+            if (length(p) == 0L || is.na(p)) Inf else p
+          }, numeric(1))
+          best               <- var_stats[[which.min(p_vals)]]
+          chi_sq_marginal    <- best$chi_sq
+          df_marginal        <- best$df
+          p_adj_marginal     <- best$p_adj
+          n_marg             <- best$n
+          sample_size_marginal <- if (!is.na(n_marg) && n_marg != n_ix) as.integer(n_marg) else NA_integer_
+        } else {
+          chi_sq_marginal      <- NA_real_
+          df_marginal          <- NA_real_
+          p_adj_marginal       <- NA_real_
+          sample_size_marginal <- NA_integer_
+        }
+      } else {
+        chi_sq_marginal      <- NA_real_
+        df_marginal          <- NA_real_
+        p_adj_marginal       <- NA_real_
+        sample_size_marginal <- NA_integer_
+      }
+
       data.frame(
-        item                = it,
-        method              = m,
-        ica_class           = ica_class,
-        marginal_vars       = if (marginal) paste(flagged_by_vars, collapse = ", ")
-                              else NA_character_,
-        intersectional_flag = effective_ix_dif,
-        stringsAsFactors    = FALSE
+        item                 = it,
+        method               = m,
+        ica_class            = ica_class,
+        marginal_vars        = if (marginal) paste(flagged_by_vars, collapse = ", ")
+                               else NA_character_,
+        intersectional_flag  = effective_ix_dif,
+        chi_sq_marginal      = chi_sq_marginal,
+        df_marginal          = df_marginal,
+        p_adj_marginal       = p_adj_marginal,
+        sample_size_marginal = sample_size_marginal,
+        stringsAsFactors     = FALSE
       )
     })
   })
